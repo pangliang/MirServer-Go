@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"log"
 	"encoding/binary"
+	"net"
 )
 
 var decode6BitMask = [...]byte{0xfc, 0xf8, 0xf0, 0xe0, 0xc0}
@@ -29,6 +30,13 @@ func (header *PacketHeader) Read(buf []byte) {
 type Packet struct {
 	Header PacketHeader
 	Data   string
+}
+
+func (packet *Packet) SendTo(socket net.Conn) {
+	buf := packet.Encode()
+	socket.Write([]byte{'#'})
+	socket.Write(buf)
+	socket.Write([]byte{'!'})
 }
 
 func (packet *Packet) Encode() []byte {

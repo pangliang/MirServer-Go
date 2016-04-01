@@ -2,11 +2,14 @@ package main
 
 import (
 	"flag"
-	"login_server"
+	"login"
+	"core"
 )
 
 func main() {
 	flag.Parse()
 	port := flag.Uint("port", 7000, "输入端口号")
-	login_server.Start(*port)
+
+	loginServer := core.Server{uint32(*port), login.LoginHanders}
+	loginServer.Start()
 }
