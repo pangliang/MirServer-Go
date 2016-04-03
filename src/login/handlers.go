@@ -4,10 +4,20 @@ import (
 	"core"
 	"core/packet"
 	"net"
+	"core/dao"
 )
 
+type ServerInfo struct {
+	Id              uint32
+	GameServerIp    string
+	GameServerPort  uint32
+	LoginServerIp   string
+	LoginServerPort uint32
+	Name            string
+}
+
 var LoginHanders = map[uint16]core.Handler{
-	CM_IDPASSWORD : func(request packet.Packet, socket net.Conn) {
+	CM_IDPASSWORD : func(request packet.Packet, socket net.Conn, env core.Env) {
 		const (
 			UserNotFound = 0
 			WrongPwd = -1
@@ -16,10 +26,19 @@ var LoginHanders = map[uint16]core.Handler{
 			NoPay = -4
 			BeLock = -5
 		)
-		resp := new(packet.Packet)
-		resp.Header.Protocol = SM_PASSWD_FAIL
-		resp.Header.Recog = UserNotFound
 
+		var serverInfoList []ServerInfo
+		dao.List(&serverInfoList, "", env.Db)
+
+		resp := new(packet.Packet)
+		resp.Header.Protocol = SM_PASSOK_SELECTSERVER
+		resp.Header.P3 = int16(len(serverInfoList))
+
+		var data string
+		for _, info := range serverInfoList {
+			data += info.Name + "/" + string(info.Id) + "/"
+		}
+		resp.Data = data
 		resp.SendTo(socket)
 	},
 }

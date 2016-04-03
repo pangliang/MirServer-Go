@@ -7,16 +7,20 @@ import (
 	"core/packet"
 	"database/sql"
 	_ "github.com/mattn/go-sqlite3"
-	"path/filepath"
 )
 
 const BUFFER_SIZE = 1024;
 
-type Handler func(packet packet.Packet, socket net.Conn)
+type Handler func(packet packet.Packet, socket net.Conn, env Env)
+
+type Env struct {
+	Db sql.DB
+}
 
 type Server struct {
-	Port     uint32
-	Handlers map[uint16] Handler
+	env      Env
+	port     uint32
+	handlers map[uint16]Handler
 }
 
 func (server *Server) handleConnect(socket net.Conn) {
@@ -39,33 +43,45 @@ func (server *Server) handleConnect(socket net.Conn) {
 		}
 		remain = newRemain
 
-		for _,packet := range packets {
+		for _, packet := range packets {
 			fmt.Printf("packet:%v\n", packet)
-			handler, ok := server.Handlers[packet.Header.Protocol]
+			handler, ok := server.handlers[packet.Header.Protocol]
 			if ok {
-				handler(packet, socket)
-			}else{
+				handler(packet, socket, server.env)
+			}else {
 				fmt.Printf("handler not found!! \n")
 			}
 		}
 	}
 }
 
-func (server *Server) Start() {
-
+func CreateServer(port uint32, handlers map[uint16]Handler) Server{
 	db, err := sql.Open("sqlite3", "./mir2.db")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
-	var listener, err2 = net.Listen("tcp", fmt.Sprint(":", server.Port))
+	env := Env{}
+	env.Db = *db
 
-	if err2 != nil {
+	server := Server{}
+	server.env = env
+	server.handlers = handlers
+	server.port = port
+
+	return server
+}
+
+func (server *Server) Start() {
+
+	var listener, err = net.Listen("tcp", fmt.Sprint(":", server.port))
+
+	if err != nil {
 		log.Fatalln("start server error: ", err)
 	}else {
 		defer listener.Close()
-		fmt.Println("server start...")
+		fmt.Println("server start...listening %d", server.port)
 
 		for {
 			var conn, err = listener.Accept()
