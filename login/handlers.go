@@ -1,9 +1,7 @@
 package login
 
 import (
-	"net"
-	"github.com/pangliang/MirServer-Go/core"
-	"github.com/pangliang/MirServer-Go/core/packet"
+	"github.com/pangliang/MirServer-Go/protocol"
 )
 
 type ServerInfo struct {
@@ -15,8 +13,8 @@ type ServerInfo struct {
 	Name            string
 }
 
-var LoginHanders = map[uint16]core.Handler{
-	CM_IDPASSWORD : func(request packet.Packet, socket net.Conn, env core.Env) {
+var loginHandlers = map[uint16]func(s *Session, request *protocol.Packet, server *LoginServer){
+	CM_IDPASSWORD : func(s *Session, request *protocol.Packet, server *LoginServer) {
 		const (
 			UserNotFound = 0
 			WrongPwd = -1
@@ -27,9 +25,9 @@ var LoginHanders = map[uint16]core.Handler{
 		)
 
 		var serverInfoList []ServerInfo
-		env.Db.List(&serverInfoList, "")
+		server.Db.List(&serverInfoList, "")
 
-		resp := new(packet.Packet)
+		resp := new(protocol.Packet)
 		resp.Header.Protocol = SM_PASSOK_SELECTSERVER
 		resp.Header.P3 = int16(len(serverInfoList))
 
@@ -38,6 +36,6 @@ var LoginHanders = map[uint16]core.Handler{
 			data += info.Name + "/" + string(info.Id) + "/"
 		}
 		resp.Data = data
-		resp.SendTo(socket)
+		resp.SendTo(s.Socket)
 	},
 }

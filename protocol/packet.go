@@ -1,4 +1,4 @@
-package packet
+package protocol
 
 import (
 	"bytes"
@@ -9,7 +9,9 @@ import (
 
 var decode6BitMask = [...]byte{0xfc, 0xf8, 0xf0, 0xe0, 0xc0}
 
-const DEFAULT_PACKET_SIZE = 12;
+const (
+	DEFAULT_PACKET_SIZE = 12
+)
 
 type PacketHeader struct {
 	Recog    int32
@@ -48,9 +50,9 @@ func (packet *Packet) Encode() []byte {
 	return append(encoder6BitBuf(buffer.Bytes()), encoder6BitBuf([]byte(packet.Data))...)
 }
 
-func Decode(frame []byte) Packet {
+func Decode(frame []byte) *Packet {
 	headerFrame := frame[2:DEFAULT_PACKET_SIZE * 4 / 3 + 2]
-	packet := Packet{}
+	packet := &Packet{}
 	packet.Header.Read(decode6BitBytes(headerFrame))
 	packet.Data = string(decode6BitBytes(frame[DEFAULT_PACKET_SIZE * 4 / 3 + 2:]))
 	return packet
@@ -77,13 +79,13 @@ func encoder6BitBuf(src []byte) []byte {
 		if resetCount < 6 {
 			dest[destPos] = (byte)(chMade + 0x3c)
 			destPos += 1
-		}else {
+		} else {
 			if (destPos < destLen - 1) {
 				dest[destPos] = (byte)(chMade + 0x3c)
 				destPos += 1
 				dest[destPos] = (byte)(chRest + 0x3c)
 				destPos += 1
-			}else {
+			} else {
 				dest[destPos] = (byte)(chMade + 0x3c)
 				destPos += 1
 			}
@@ -147,24 +149,4 @@ func decode6BitBytes(src []byte) []byte {
 	}
 
 	return dest
-
-}
-
-func SplitFrame(buf []byte, remain []byte) ([][]byte, []byte) {
-	frames := make([][]byte, 0)
-	offset := 0
-	for i, b := range buf {
-		if b == '!' {
-			frame := buf[offset:i + 1]
-			packet := make([]byte, 0, len(remain) + len(frame))
-			packet = append(packet, remain...)
-			packet = append(packet, frame...)
-			remain = remain[len(remain):]
-			offset = i + 1
-			frames = append(frames, packet)
-		}
-	}
-	remain = append(remain, buf[offset:]...)
-
-	return frames, remain
 }
