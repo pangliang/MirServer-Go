@@ -4,9 +4,9 @@ import (
 	"net"
 	"fmt"
 	"log"
-	"core/packet"
-	"database/sql"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/pangliang/MirServer-Go/core/packet"
+	"github.com/pangliang/go-dao"
 )
 
 const BUFFER_SIZE = 1024;
@@ -14,7 +14,7 @@ const BUFFER_SIZE = 1024;
 type Handler func(packet packet.Packet, socket net.Conn, env Env)
 
 type Env struct {
-	Db sql.DB
+	Db dao.DB
 }
 
 type Server struct {
@@ -56,7 +56,7 @@ func (server *Server) handleConnect(socket net.Conn) {
 }
 
 func CreateServer(port uint32, handlers map[uint16]Handler) Server{
-	db, err := sql.Open("sqlite3", "./mir2.db")
+	db, err := dao.Open("sqlite3", "./mir2.db")
 	if err != nil {
 		log.Fatal(err)
 	}

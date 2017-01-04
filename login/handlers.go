@@ -1,10 +1,9 @@
 package login
 
 import (
-	"core"
-	"core/packet"
 	"net"
-	"core/dao"
+	"github.com/pangliang/MirServer-Go/core"
+	"github.com/pangliang/MirServer-Go/core/packet"
 )
 
 type ServerInfo struct {
@@ -28,7 +27,7 @@ var LoginHanders = map[uint16]core.Handler{
 		)
 
 		var serverInfoList []ServerInfo
-		dao.List(&serverInfoList, "", env.Db)
+		env.Db.List(&serverInfoList, "")
 
 		resp := new(packet.Packet)
 		resp.Header.Protocol = SM_PASSOK_SELECTSERVER

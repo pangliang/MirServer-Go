@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	"login"
-	"core"
+	"github.com/pangliang/MirServer-Go/core"
+	"github.com/pangliang/MirServer-Go/login"
 )
 
 func main() {
