@@ -27,9 +27,11 @@ const (
 )
 
 type Player struct {
-	name string
-	job Job
-	hair byte
-	level uint
-	gender Gender
+	Id uint32
+	UserId uint32
+	Name string
+	Job int
+	Hair int
+	Level uint
+	Gender int
 }

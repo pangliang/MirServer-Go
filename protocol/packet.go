@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"net"
 	"strings"
+	"fmt"
 )
 
 var decode6BitMask = [...]byte{0xfc, 0xf8, 0xf0, 0xe0, 0xc0}
@@ -48,10 +49,16 @@ func (packet *Packet) Params() []string {
 
 func (packet *Packet) SendTo(socket net.Conn) {
 	buf := packet.encode()
-	log.Printf("send:%s\n", buf)
-	socket.Write([]byte{'#'})
-	socket.Write(buf)
-	socket.Write([]byte{'!'})
+	data := fmt.Sprintf("#%s!", buf)
+	log.Printf("send: %s\n", data)
+	socket.Write([]byte(data))
+}
+
+func (packet *Packet) SendToServer(seq uint32, socket net.Conn) {
+	buf := packet.encode()
+	data := fmt.Sprintf("#%d%s!", seq, buf)
+	log.Printf("send: %s\n", data)
+	socket.Write([]byte(data))
 }
 
 func (packet *Packet) encode() []byte {
@@ -63,12 +70,20 @@ func (packet *Packet) encode() []byte {
 	return append(encoder6BitBuf(buffer.Bytes()), encoder6BitBuf([]byte(packet.Data))...)
 }
 
-func Decode(frame []byte) *Packet {
-	headerFrame := frame[2:DEFAULT_PACKET_SIZE * 4 / 3 + 2]
+func decode(frame []byte) *Packet {
+	headerFrame := frame[:DEFAULT_PACKET_SIZE * 4 / 3 ]
 	packet := &Packet{}
 	packet.Header.Read(decode6BitBytes(headerFrame))
-	packet.Data = string(decode6BitBytes(frame[DEFAULT_PACKET_SIZE * 4 / 3 + 2:len(frame)-1]))
+	packet.Data = string(decode6BitBytes(frame[DEFAULT_PACKET_SIZE * 4 / 3 :]))
 	return packet
+}
+
+func ParseClient(frame []byte) *Packet {
+	return decode(frame[2:len(frame)-1])
+}
+
+func ParseServer(frame []byte) *Packet {
+	return decode(frame[1:len(frame)-1])
 }
 
 func encoder6BitBuf(src []byte) []byte {

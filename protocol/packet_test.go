@@ -21,7 +21,7 @@ func TestParsePackets(t *testing.T) {
 	}
 	for _, subject := range m {
 		data := []byte(subject.data)
-		packet := Decode(data)
+		packet := ParseClient(data)
 		fmt.Printf("%v, %v\n", []byte(data), subject.answers.encode())
 		if ! packetEquel(packet, subject.answers) {
 			t.Fatalf("Decode fata !! expect: %v actually:%v", subject.answers, packet)

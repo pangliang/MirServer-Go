@@ -8,8 +8,6 @@ import (
 	"net"
 	"bufio"
 	"github.com/pangliang/MirServer-Go/util"
-	"flag"
-	"os"
 )
 
 type Session struct {
@@ -17,35 +15,36 @@ type Session struct {
 	Socket net.Conn
 }
 
-type LoginServer struct {
-	db         *dao.DB
-	listener   net.Listener
-	waitGroup  util.WaitGroupWrapper
-	loginChan  chan <-  interface{}
-	packetChan chan *protocol.Packet
+type Option struct {
+	IsTest  bool
+	Address string
+	DbPath  string
 }
 
-func New(loginChan chan <- interface{}) *LoginServer {
-	db, err := dao.Open("sqlite3", "./mir2.db")
-	if err != nil {
-		log.Fatalf("open database error : %s", err)
-	}
+type LoginServer struct {
+	opt       *Option
+	db        *dao.DB
+	listener  net.Listener
+	waitGroup util.WaitGroupWrapper
+	LoginChan chan <-interface{}
+}
 
+func New(opt *Option) *LoginServer {
 	loginServer := &LoginServer{
-		db:db,
-		loginChan: loginChan,
-		packetChan:make(chan *protocol.Packet, 1),
+		opt:opt,
 	}
-
 	return loginServer
 }
 
 func (s *LoginServer) Main() {
-	flagSet := flag.NewFlagSet("loginserver", flag.ExitOnError)
-	address := flagSet.String("login-address", "0.0.0.0:7000", "<addr>:<port> to listen on for TCP clients")
-	flagSet.Parse(os.Args[1:])
 
-	listener, err := net.Listen("tcp", *address)
+	db, err := dao.Open("sqlite3", s.opt.DbPath)
+	if err != nil {
+		log.Fatalf("open database error : %s", err)
+	}
+	s.db = db
+
+	listener, err := net.Listen("tcp", s.opt.Address)
 	if err != nil {
 		log.Fatalln("start server error: ", err)
 	}
@@ -77,7 +76,7 @@ func (l *LoginServer) Handle(socket net.Conn) {
 		}
 		log.Printf("recv:%s\n", string(buf))
 
-		packet := protocol.Decode(buf)
+		packet := protocol.ParseClient(buf)
 		log.Printf("packet:%v\n", packet)
 
 		packetHandler, ok := loginHandlers[packet.Header.Protocol]

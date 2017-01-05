@@ -1,24 +1,7 @@
 package gameserver
 
 const (
-	CM_PROTOCOL = 2000
-	CM_IDPASSWORD = 2001
-	CM_IDPASSWORD_2 = 22001
-
-	CM_ADDNEWUSER = 2002
-	CM_CHANGEPASSWORD = 2003
-	CM_UPDATEUSER = 2004
-	CM_SELECTSERVER = 104
-
-	SM_CERTIFICATION_FAIL = 501
-	SM_ID_NOTFOUND = 502
-	SM_PASSWD_FAIL = 503
-	SM_NEWID_SUCCESS = 504
-	SM_NEWID_FAIL = 505
-	SM_PASSOK_SELECTSERVER = 529
-	SM_SELECTSERVER_OK = 530
-
-// For Select Player Process
+	// For Select Player Process
 	CM_QUERYCHR = 100
 	CM_NEWCHR = 101
 	CM_DELCHR = 102
@@ -33,8 +16,8 @@ const (
 	SM_STARTFAIL = 526
 	SM_QUERYCHR_FAIL = 527
 
-// For game process
-// Client To Server Commands
+	// For game process
+	// Client To Server Commands
 	CM_GAMELOGIN = 65001
 	CM_QUERYUSERNAME = 80
 	CM_QUERYBAGITEMS = 81
@@ -70,7 +53,7 @@ const (
 	CM_SAY = 3030
 	CM_RIDE = 3031
 
-// Server to Client Commands
+	// Server to Client Commands
 	SM_RUSH = 6
 	SM_FIREHIT = 8
 	SM_BACKSTEP = 9

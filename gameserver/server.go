@@ -7,8 +7,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"net"
 	"bufio"
-	"flag"
-	"os"
 	"github.com/pangliang/MirServer-Go/util"
 	"sync"
 	"github.com/pangliang/MirServer-Go/loginserver"
@@ -19,53 +17,51 @@ type env struct {
 	users map[string]loginserver.User
 }
 
+type Option struct {
+	IsTest  bool
+	Address string
+	DbPath  string
+}
+
 type Session struct {
 	attr   map[string]interface{}
 	socket net.Conn
 }
 
 type GameServer struct {
+	opt       *Option
 	env       *env
 	db        *dao.DB
 	listener  net.Listener
 	waitGroup util.WaitGroupWrapper
-	loginChan <-chan interface{}
+	LoginChan <-chan interface{}
 	exitChan  chan int
 }
 
-func New(loginChan <-chan interface{}) *GameServer {
-	db, err := dao.Open("sqlite3", "./mir2.db")
-	if err != nil {
-		log.Fatalf("open database error : %s", err)
-	}
-
+func New(opt *Option) *GameServer {
 	gameServer := &GameServer{
-		db:db,
-		loginChan:loginChan,
+		opt:opt,
 		env:&env{
 			users:make(map[string]loginserver.User),
 		},
 	}
-
 	return gameServer
 }
 
 func (s *GameServer) Main() {
-	flagSet := flag.NewFlagSet("gameserver", flag.ExitOnError)
-	address := flagSet.String("game-address", "0.0.0.0:7400", "<addr>:<port> to listen on for TCP clients")
-	flagSet.Parse(os.Args[1:])
+	db, err := dao.Open("sqlite3", s.opt.DbPath)
+	if err != nil {
+		log.Fatalf("open database error : %s", err)
+	}
+	s.db = db
 
-	listener, err := net.Listen("tcp", *address)
+	listener, err := net.Listen("tcp", s.opt.Address)
 	if err != nil {
 		log.Fatalln("start server error: ", err)
 	}
 	s.listener = listener
 	s.waitGroup.Wrap(func() {
 		protocol.TCPServer(listener, s)
-	})
-
-	s.waitGroup.Wrap(func() {
-		s.eventLoop()
 	})
 }
 
@@ -83,7 +79,7 @@ func (s *GameServer) eventLoop() {
 		case <-s.exitChan:
 			log.Print("exit EventLoop")
 			break
-		case e := <-s.loginChan:
+		case e := <-s.LoginChan:
 			user := e.(loginserver.User)
 			s.env.Lock()
 			s.env.users[user.Name] = user
@@ -107,7 +103,7 @@ func (l *GameServer) Handle(socket net.Conn) {
 		}
 		log.Printf("recv:%s\n", string(buf))
 
-		packet := protocol.Decode(buf)
+		packet := protocol.ParseClient(buf)
 		log.Printf("packet:%v\n", packet)
 
 		packetHandler, ok := gameHandlers[packet.Header.Protocol]
@@ -116,6 +112,9 @@ func (l *GameServer) Handle(socket net.Conn) {
 			return
 		}
 
-		packetHandler(session, packet, l)
+		err = packetHandler(session, packet, l)
+		if err != nil {
+			log.Printf("handler error: %s\n", err)
+		}
 	}
 }

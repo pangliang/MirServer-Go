@@ -17,14 +17,14 @@ type ServerInfo struct {
 }
 
 type User struct {
-	Id	uint32
-	Name	string
-	Passwd	string
-	Cert	int32
+	Id     uint32
+	Name   string
+	Passwd string
+	Cert   int32
 }
 
 var loginHandlers = map[uint16]func(s *Session, request *protocol.Packet, server *LoginServer) (err error){
-	CM_IDPASSWORD : func(session *Session, request *protocol.Packet, server *LoginServer) (err error){
+	CM_IDPASSWORD : func(session *Session, request *protocol.Packet, server *LoginServer) (err error) {
 		const (
 			UserNotFound = 0
 			WrongPwd = -1
@@ -36,7 +36,7 @@ var loginHandlers = map[uint16]func(s *Session, request *protocol.Packet, server
 		params := request.Params()
 		var userList []User
 		err = server.db.List(&userList, "where name=?", params[0])
-		if err != nil || len(userList) == 0 || userList[0].Passwd != params[1] {
+		if err != nil || len(userList) == 0 {
 			resp := protocol.NewPacket(SM_PASSWD_FAIL)
 			resp.Header.Recog = UserNotFound
 			resp.SendTo(session.Socket)
@@ -66,7 +66,7 @@ var loginHandlers = map[uint16]func(s *Session, request *protocol.Packet, server
 
 		var data string
 		for _, info := range serverInfoList {
-			data += info.Name + "/" + string(info.Id) + "/"
+			data += fmt.Sprintf("%s/%d/", info.Name, info.Id)
 		}
 		resp.Data = data
 		resp.SendTo(session.Socket)
@@ -74,7 +74,7 @@ var loginHandlers = map[uint16]func(s *Session, request *protocol.Packet, server
 		return nil
 	},
 
-	CM_SELECTSERVER : func(s *Session, request *protocol.Packet, server *LoginServer)  (err error){
+	CM_SELECTSERVER : func(s *Session, request *protocol.Packet, server *LoginServer) (err error) {
 
 		serverName := request.Data
 		var serverInfoList []ServerInfo
@@ -87,14 +87,18 @@ var loginHandlers = map[uint16]func(s *Session, request *protocol.Packet, server
 		}
 
 		user := s.attr["user"].(User)
-		user.Cert =  rand.Int31n(200)
-		server.loginChan <- user
+		user.Cert = rand.Int31n(200)
+		server.LoginChan <- user
 
 		resp := &protocol.Packet{}
 		resp.Header.Protocol = SM_SELECTSERVER_OK
 		resp.Header.Recog = user.Cert
 
-		resp.Data = fmt.Sprintf("%s/%d/%d", serverInfoList[0].GameServerIp, serverInfoList[0].GameServerPort, user.Cert)
+		resp.Data = fmt.Sprintf("%s/%d/%d",
+			serverInfoList[0].GameServerIp,
+			serverInfoList[0].GameServerPort,
+			user.Cert,
+		)
 
 		resp.SendTo(s.Socket)
 

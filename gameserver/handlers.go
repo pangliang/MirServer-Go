@@ -7,8 +7,8 @@ import (
 	"fmt"
 )
 
-var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, server *GameServer){
-	CM_NEWCHR : func(session *Session, request *protocol.Packet, server *GameServer) {
+var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, server *GameServer) (err error){
+	CM_NEWCHR : func(session *Session, request *protocol.Packet, server *GameServer) (err error) {
 		const (
 			WrongName = 0
 			NameExist = 2
@@ -18,13 +18,39 @@ var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, s
 		params := strings.Split(request.Data, "/")
 		if len(params) < 5 {
 			protocol.NewPacket(SM_NEWCHR_FAIL).SendTo(session.socket)
+			return nil
+		}
+
+		server.env.RLock()
+		user, ok := server.env.users[params[0]]
+		server.env.RUnlock()
+
+		if !ok {
+			protocol.NewPacket(SM_NEWCHR_FAIL).SendTo(session.socket)
+			return nil
+		}
+
+		player := Player{
+			UserId:user.Id,
+		}
+		player.Name = params[1]
+		player.Hair, _ = strconv.Atoi(params[2])
+		player.Job, _ = strconv.Atoi(params[3])
+		player.Gender, _ = strconv.Atoi(params[4])
+
+		_, err = server.db.Save(player)
+		if err != nil {
+			protocol.NewPacket(SM_NEWCHR_FAIL).SendTo(session.socket)
 			return
 		}
+
+		protocol.NewPacket(SM_NEWCHR_SUCCESS).SendTo(session.socket)
+		return nil
 	},
-	CM_QUERYCHR : func(session *Session, request *protocol.Packet, server *GameServer) {
+	CM_QUERYCHR : func(session *Session, request *protocol.Packet, server *GameServer) (err error) {
 		params := strings.Split(request.Data, "/")
 		if len(params) < 1 {
-			protocol.NewPacket(SM_CERTIFICATION_FAIL).SendTo(session.socket)
+			protocol.NewPacket(SM_QUERYCHR_FAIL).SendTo(session.socket)
 			return
 		}
 		username := params[0]
@@ -33,35 +59,40 @@ var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, s
 		server.env.RUnlock()
 
 		if !ok {
-			protocol.NewPacket(SM_CERTIFICATION_FAIL).SendTo(session.socket)
+			protocol.NewPacket(SM_QUERYCHR_FAIL).SendTo(session.socket)
 			return
 		}
 
 		cert, err := strconv.Atoi(params[1])
 		if err != nil || int32(cert) != loginUser.Cert {
-			protocol.NewPacket(SM_CERTIFICATION_FAIL).SendTo(session.socket)
+			protocol.NewPacket(SM_QUERYCHR_FAIL).SendTo(session.socket)
 			return
 		}
-		player := &Player{
-			name:"pangliang",
-			job:Warrior,
-			hair:0,
-			level:1,
-			gender:Female,
+		session.attr["user"] = loginUser
+
+		var playerList []Player
+		err = server.db.List(&playerList, "where userId=?", loginUser.Id)
+		if err != nil {
+			protocol.NewPacket(SM_QUERYCHR_FAIL).SendTo(session.socket)
+			return err
 		}
 
-		session.attr["user"] = loginUser
-		resp := protocol.NewPacket(SM_QUERYCHR)
-		resp.Header.Recog = 1
-		resp.Data = fmt.Sprintf("%s/%d/%d/%d/%d/",
-			player.name,
-			player.job,
-			player.hair,
-			player.level,
-			player.gender,
-		)
-		resp.SendTo(session.socket)
+		if len(playerList) > 0 {
+			resp := protocol.NewPacket(SM_QUERYCHR)
+			resp.Header.Recog = int32(len(playerList))
+			for _, player := range playerList {
+				resp.Data += fmt.Sprintf("%s/%d/%d/%d/%d/",
+					player.Name,
+					player.Job,
+					player.Hair,
+					player.Level,
+					player.Gender,
+				)
+			}
 
-		return
+			resp.SendTo(session.socket)
+		}
+
+		return nil
 	},
 }
