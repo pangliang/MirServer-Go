@@ -4,7 +4,6 @@ import (
 	"github.com/pangliang/MirServer-Go/protocol"
 	"log"
 	"fmt"
-	"strings"
 	"math/rand"
 )
 
@@ -17,8 +16,15 @@ type ServerInfo struct {
 	Name            string
 }
 
-var loginHandlers = map[uint16]func(s *Session, request *protocol.Packet, server *LoginServer){
-	CM_IDPASSWORD : func(s *Session, request *protocol.Packet, server *LoginServer) {
+type User struct {
+	Id	uint32
+	Name	string
+	Passwd	string
+	Cert	int32
+}
+
+var loginHandlers = map[uint16]func(s *Session, request *protocol.Packet, server *LoginServer) (err error){
+	CM_IDPASSWORD : func(session *Session, request *protocol.Packet, server *LoginServer) (err error){
 		const (
 			UserNotFound = 0
 			WrongPwd = -1
@@ -27,15 +33,30 @@ var loginHandlers = map[uint16]func(s *Session, request *protocol.Packet, server
 			NoPay = -4
 			BeLock = -5
 		)
-		params := strings.Split(request.Data, "/")
-		s.attr["username"] = params[0]
-		s.attr["passwd"] = params[1]
+		params := request.Params()
+		var userList []User
+		err = server.db.List(&userList, "where name=?", params[0])
+		if err != nil || len(userList) == 0 || userList[0].Passwd != params[1] {
+			resp := protocol.NewPacket(SM_PASSWD_FAIL)
+			resp.Header.Recog = UserNotFound
+			resp.SendTo(session.Socket)
+			return
+		}
+
+		if userList[0].Passwd != params[1] {
+			resp := protocol.NewPacket(SM_PASSWD_FAIL)
+			resp.Header.Recog = WrongPwd
+			resp.SendTo(session.Socket)
+			return
+		}
+
+		session.attr["user"] = userList[0]
 
 		var serverInfoList []ServerInfo
-		err := server.db.List(&serverInfoList, "")
+		err = server.db.List(&serverInfoList, "")
 		if err != nil {
 			log.Printf("db list error : %s \n ", err)
-			s.Socket.Close()
+			session.Socket.Close()
 			return
 		}
 
@@ -48,41 +69,35 @@ var loginHandlers = map[uint16]func(s *Session, request *protocol.Packet, server
 			data += info.Name + "/" + string(info.Id) + "/"
 		}
 		resp.Data = data
-		resp.SendTo(s.Socket)
+		resp.SendTo(session.Socket)
+
+		return nil
 	},
 
-	CM_SELECTSERVER : func(s *Session, request *protocol.Packet, server *LoginServer) {
+	CM_SELECTSERVER : func(s *Session, request *protocol.Packet, server *LoginServer)  (err error){
 
 		serverName := request.Data
 		var serverInfoList []ServerInfo
-		err := server.db.List(&serverInfoList, "where name=?", serverName)
-		if err != nil {
-			log.Printf("db list error : %s \n ", err)
-			s.Socket.Close()
-			return
-		}
-
-		if len(serverInfoList) == 0 {
-			log.Printf("server not found [%s] in {%v}\n", serverName, serverInfoList)
+		err = server.db.List(&serverInfoList, "where name=?", serverName)
+		if err != nil || len(serverInfoList) == 0 {
 			resp := &protocol.Packet{}
 			resp.Header.Protocol = SM_ID_NOTFOUND
 			resp.SendTo(s.Socket)
 			return
 		}
 
-		cert := rand.Int31n(200)
-		username := s.attr["username"]
-		server.userLoginChan <- map[string]interface{}{
-			"username":username,
-			"cert":int16(cert),
-		}
+		user := s.attr["user"].(User)
+		user.Cert =  rand.Int31n(200)
+		server.loginChan <- user
 
 		resp := &protocol.Packet{}
 		resp.Header.Protocol = SM_SELECTSERVER_OK
-		resp.Header.Recog = cert
+		resp.Header.Recog = user.Cert
 
-		resp.Data = fmt.Sprintf("%s/%d/%d", serverInfoList[0].GameServerIp, serverInfoList[0].GameServerPort, cert)
+		resp.Data = fmt.Sprintf("%s/%d/%d", serverInfoList[0].GameServerIp, serverInfoList[0].GameServerPort, user.Cert)
 
 		resp.SendTo(s.Socket)
+
+		return nil
 	},
 }

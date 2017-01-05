@@ -11,16 +11,12 @@ import (
 	"os"
 	"github.com/pangliang/MirServer-Go/util"
 	"sync"
+	"github.com/pangliang/MirServer-Go/loginserver"
 )
-
-type user struct {
-	username string
-	cert int16
-}
 
 type env struct {
 	sync.RWMutex
-	users map[string]*user
+	users map[string]loginserver.User
 }
 
 type Session struct {
@@ -29,15 +25,15 @@ type Session struct {
 }
 
 type GameServer struct {
-	env           *env
-	db            *dao.DB
-	listener      net.Listener
-	waitGroup     util.WaitGroupWrapper
-	userLoginChan <-chan map[string]interface{}
-	exitChan      chan int
+	env       *env
+	db        *dao.DB
+	listener  net.Listener
+	waitGroup util.WaitGroupWrapper
+	loginChan <-chan interface{}
+	exitChan  chan int
 }
 
-func New(userLoginChan <-chan map[string]interface{}) *GameServer {
+func New(loginChan <-chan interface{}) *GameServer {
 	db, err := dao.Open("sqlite3", "./mir2.db")
 	if err != nil {
 		log.Fatalf("open database error : %s", err)
@@ -45,9 +41,9 @@ func New(userLoginChan <-chan map[string]interface{}) *GameServer {
 
 	gameServer := &GameServer{
 		db:db,
-		userLoginChan:userLoginChan,
+		loginChan:loginChan,
 		env:&env{
-			users:make(map[string]*user),
+			users:make(map[string]loginserver.User),
 		},
 	}
 
@@ -87,12 +83,10 @@ func (s *GameServer) eventLoop() {
 		case <-s.exitChan:
 			log.Print("exit EventLoop")
 			break
-		case login := <-s.userLoginChan:
-			cert := login["cert"].(int16)
-			username := login["username"].(string)
-			user := &user{username:username, cert:cert}
+		case e := <-s.loginChan:
+			user := e.(loginserver.User)
 			s.env.Lock()
-			s.env.users[username] = user
+			s.env.users[user.Name] = user
 			s.env.Unlock()
 		}
 	}

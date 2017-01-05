@@ -1,7 +1,6 @@
 package gameserver
 
 type Job int
-
 const(
 	/**
 	 * 战士

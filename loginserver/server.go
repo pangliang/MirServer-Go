@@ -13,19 +13,19 @@ import (
 )
 
 type Session struct {
-	attr map[string]interface{}
+	attr   map[string]interface{}
 	Socket net.Conn
 }
 
 type LoginServer struct {
-	db            *dao.DB
-	listener      net.Listener
-	waitGroup     util.WaitGroupWrapper
-	userLoginChan chan<-  map[string]interface{}
-	packetChan    chan *protocol.Packet
+	db         *dao.DB
+	listener   net.Listener
+	waitGroup  util.WaitGroupWrapper
+	loginChan  chan <-  interface{}
+	packetChan chan *protocol.Packet
 }
 
-func New(userLoginChan chan<- map[string]interface{}) *LoginServer {
+func New(loginChan chan <- interface{}) *LoginServer {
 	db, err := dao.Open("sqlite3", "./mir2.db")
 	if err != nil {
 		log.Fatalf("open database error : %s", err)
@@ -33,7 +33,7 @@ func New(userLoginChan chan<- map[string]interface{}) *LoginServer {
 
 	loginServer := &LoginServer{
 		db:db,
-		userLoginChan: userLoginChan,
+		loginChan: loginChan,
 		packetChan:make(chan *protocol.Packet, 1),
 	}
 
@@ -86,6 +86,9 @@ func (l *LoginServer) Handle(socket net.Conn) {
 			return
 		}
 
-		packetHandler(session, packet, l)
+		err = packetHandler(session, packet, l)
+		if err != nil {
+			log.Printf("handler error: %s\n", err)
+		}
 	}
 }

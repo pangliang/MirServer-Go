@@ -5,12 +5,14 @@ import (
 	"log"
 	"encoding/binary"
 	"net"
+	"strings"
 )
 
 var decode6BitMask = [...]byte{0xfc, 0xf8, 0xf0, 0xe0, 0xc0}
 
 const (
 	DEFAULT_PACKET_SIZE = 12
+	CONTENT_SEPARATOR = "/"
 )
 
 type PacketHeader struct {
@@ -40,15 +42,19 @@ func NewPacket(protocolId uint16) *Packet {
 	return p
 }
 
+func (packet *Packet) Params() []string {
+	return strings.Split(packet.Data, CONTENT_SEPARATOR)
+}
+
 func (packet *Packet) SendTo(socket net.Conn) {
-	buf := packet.Encode()
+	buf := packet.encode()
 	log.Printf("send:%s\n", buf)
 	socket.Write([]byte{'#'})
 	socket.Write(buf)
 	socket.Write([]byte{'!'})
 }
 
-func (packet *Packet) Encode() []byte {
+func (packet *Packet) encode() []byte {
 	buffer := new(bytes.Buffer)
 	err := binary.Write(buffer, binary.LittleEndian, packet.Header)
 	if err != nil {
@@ -61,8 +67,7 @@ func Decode(frame []byte) *Packet {
 	headerFrame := frame[2:DEFAULT_PACKET_SIZE * 4 / 3 + 2]
 	packet := &Packet{}
 	packet.Header.Read(decode6BitBytes(headerFrame))
-	dataBytes := decode6BitBytes(frame[DEFAULT_PACKET_SIZE * 4 / 3 + 2:])
-	packet.Data = string(dataBytes[:len(dataBytes)-1])
+	packet.Data = string(decode6BitBytes(frame[DEFAULT_PACKET_SIZE * 4 / 3 + 2:len(frame)-1]))
 	return packet
 }
 

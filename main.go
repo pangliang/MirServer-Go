@@ -33,12 +33,12 @@ func (p *program) Init(env svc.Environment) error {
 
 func (p *program) Start() error {
 
-	userLoginChan := make(chan map[string]interface{})
+	loginChan := make(chan interface{})
 
-	p.loginServer = loginserver.New(userLoginChan)
+	p.loginServer = loginserver.New(loginChan)
 	p.loginServer.Main()
 
-	p.gameServer = gameserver.New(userLoginChan)
+	p.gameServer = gameserver.New(loginChan)
 	p.gameServer.Main()
 
 	return nil

@@ -8,6 +8,19 @@ import (
 )
 
 var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, server *GameServer){
+	CM_NEWCHR : func(session *Session, request *protocol.Packet, server *GameServer) {
+		const (
+			WrongName = 0
+			NameExist = 2
+			MaxPlayers = 3
+			SystemErr = 4
+		)
+		params := strings.Split(request.Data, "/")
+		if len(params) < 5 {
+			protocol.NewPacket(SM_NEWCHR_FAIL).SendTo(session.socket)
+			return
+		}
+	},
 	CM_QUERYCHR : func(session *Session, request *protocol.Packet, server *GameServer) {
 		params := strings.Split(request.Data, "/")
 		if len(params) < 1 {
@@ -25,7 +38,7 @@ var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, s
 		}
 
 		cert, err := strconv.Atoi(params[1])
-		if err != nil || int16(cert) != loginUser.cert {
+		if err != nil || int32(cert) != loginUser.Cert {
 			protocol.NewPacket(SM_CERTIFICATION_FAIL).SendTo(session.socket)
 			return
 		}
