@@ -1,4 +1,4 @@
-package login
+package loginserver
 
 const (
 	CM_PROTOCOL = 2000

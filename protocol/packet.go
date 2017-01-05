@@ -34,8 +34,15 @@ type Packet struct {
 	Data   string
 }
 
+func NewPacket(protocolId uint16) *Packet {
+	p := &Packet{}
+	p.Header.Protocol = protocolId
+	return p
+}
+
 func (packet *Packet) SendTo(socket net.Conn) {
 	buf := packet.Encode()
+	log.Printf("send:%s\n", buf)
 	socket.Write([]byte{'#'})
 	socket.Write(buf)
 	socket.Write([]byte{'!'})
@@ -54,7 +61,8 @@ func Decode(frame []byte) *Packet {
 	headerFrame := frame[2:DEFAULT_PACKET_SIZE * 4 / 3 + 2]
 	packet := &Packet{}
 	packet.Header.Read(decode6BitBytes(headerFrame))
-	packet.Data = string(decode6BitBytes(frame[DEFAULT_PACKET_SIZE * 4 / 3 + 2:]))
+	dataBytes := decode6BitBytes(frame[DEFAULT_PACKET_SIZE * 4 / 3 + 2:])
+	packet.Data = string(dataBytes[:len(dataBytes)-1])
 	return packet
 }
 

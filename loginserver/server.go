@@ -1,4 +1,4 @@
-package login
+package loginserver
 
 import (
 	"github.com/pangliang/MirServer-Go/protocol"
@@ -7,33 +7,66 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"net"
 	"bufio"
+	"github.com/pangliang/MirServer-Go/util"
+	"flag"
+	"os"
 )
 
 type Session struct {
+	attr map[string]interface{}
 	Socket net.Conn
 }
 
 type LoginServer struct {
-	Db *dao.DB
+	db            *dao.DB
+	listener      net.Listener
+	waitGroup     util.WaitGroupWrapper
+	userLoginChan chan<-  map[string]interface{}
+	packetChan    chan *protocol.Packet
 }
 
-func New() *LoginServer {
+func New(userLoginChan chan<- map[string]interface{}) *LoginServer {
 	db, err := dao.Open("sqlite3", "./mir2.db")
 	if err != nil {
 		log.Fatalf("open database error : %s", err)
 	}
 
 	loginServer := &LoginServer{
-		Db:db,
+		db:db,
+		userLoginChan: userLoginChan,
+		packetChan:make(chan *protocol.Packet, 1),
 	}
 
 	return loginServer
+}
+
+func (s *LoginServer) Main() {
+	flagSet := flag.NewFlagSet("loginserver", flag.ExitOnError)
+	address := flagSet.String("login-address", "0.0.0.0:7000", "<addr>:<port> to listen on for TCP clients")
+	flagSet.Parse(os.Args[1:])
+
+	listener, err := net.Listen("tcp", *address)
+	if err != nil {
+		log.Fatalln("start server error: ", err)
+	}
+	s.listener = listener
+	s.waitGroup.Wrap(func() {
+		protocol.TCPServer(listener, s)
+	})
+}
+
+func (s *LoginServer) Exit() {
+	if s.listener != nil {
+		s.listener.Close()
+	}
+	s.waitGroup.Wait()
 }
 
 func (l *LoginServer) Handle(socket net.Conn) {
 	defer socket.Close()
 	session := &Session{
 		Socket: socket,
+		attr:map[string]interface{}{},
 	}
 	for {
 		reader := bufio.NewReader(socket)
