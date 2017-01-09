@@ -5,8 +5,7 @@ import (
 	"os"
 	"github.com/pangliang/MirServer-Go/mockclient"
 	"github.com/pangliang/MirServer-Go/protocol"
-	"io/ioutil"
-	"database/sql"
+	"github.com/jinzhu/gorm"
 	"log"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -20,39 +19,46 @@ const (
 	LOGIN_SERVER_ADDRESS = "127.0.0.1:7000"
 	GAME_SERVER_ADDRESS = "127.0.0.1:7400"
 	DB_PATH = "g:/go_workspace/src/github.com/pangliang/MirServer-Go/mir2.db"
-	TEST_DB_PATH = DB_PATH + ".test"
 )
 
 func initTestDB() (err error) {
-	os.Remove(TEST_DB_PATH)
-	data, err := ioutil.ReadFile(DB_PATH)
+	db, err := gorm.Open("sqlite3", DB_PATH)
 	if err != nil {
-		return
+		log.Fatalf("open database error : %s", err)
 	}
-	err = ioutil.WriteFile(TEST_DB_PATH, data, 0777)
+	err = initDB(db)
 	if err != nil {
-		return
+		log.Fatalln("init database error: ", err)
 	}
 
-	db, err := sql.Open("sqlite3", TEST_DB_PATH)
-	if err != nil {
-		return
-	}
+	db.Delete(loginserver.User{})
+	db.Create(&loginserver.User{
+		Id:1,
+		Name:"pangliang",
+		Passwd:"pwd",
+	})
 
-	sqls := []string{
-		"delete from user",
-		"insert into user values (1,'pangliang','pwd',0)",
-		"delete from serverinfo",
-		"insert into serverinfo values (1,'127.0.0.1',7400,'127.0.0.1',7000,'test1'),(2,'192.168.0.166',7400,'192.168.0.166',7000,'test2')",
-		"delete from player",
-	}
+	db.Delete(loginserver.ServerInfo{})
+	db.Create(&loginserver.ServerInfo{
+		Id:1,
+		GameServerIp:"127.0.0.1",
+		GameServerPort:7400,
+		LoginServerIp:"127.0.0.1",
+		LoginServerPort:7000,
+		Name:"test1",
+	})
 
-	for _, sqlString := range sqls {
-		_, err = db.Exec(sqlString)
-		if err != nil {
-			return
-		}
-	}
+	db.Create(&loginserver.ServerInfo{
+		Id:2,
+		GameServerIp:"192.168.0.166",
+		GameServerPort:7400,
+		LoginServerIp:"192.168.0.166",
+		LoginServerPort:7000,
+		Name:"test2",
+	})
+
+	db.Delete(Player{})
+
 	return
 }
 
@@ -70,7 +76,7 @@ func TestMain(m *testing.M) {
 	loginServer := loginserver.New(&loginserver.Option{
 		IsTest:true,
 		Address:LOGIN_SERVER_ADDRESS,
-		DbPath:TEST_DB_PATH,
+		DbPath:DB_PATH,
 	})
 	loginServer.LoginChan = loginChan
 	loginServer.Main()
@@ -78,7 +84,7 @@ func TestMain(m *testing.M) {
 	gameServer := New(&Option{
 		IsTest:true,
 		Address:GAME_SERVER_ADDRESS,
-		DbPath:TEST_DB_PATH,
+		DbPath:DB_PATH,
 	})
 	gameServer.LoginChan = loginChan
 	gameServer.Main()
@@ -197,7 +203,7 @@ func TestCreateDeletePlayer(t *testing.T) {
 
 	if err := sendAndCheck(client,
 		&protocol.Packet{protocol.PacketHeader{0, CM_QUERYCHR, 0, 0, 0}, fmt.Sprintf("pangliang/%d",cert)},
-		&protocol.Packet{protocol.PacketHeader{1, SM_QUERYCHR, 0, 0, 0}, "player1/2/3/1/1/"},
+		&protocol.Packet{protocol.PacketHeader{2, SM_QUERYCHR, 0, 0, 0}, "player1/2/3/1/1/player2/1/1/1/2/"},
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +224,7 @@ func TestCreateDeletePlayer(t *testing.T) {
 
 	if err := sendAndCheck(client,
 		&protocol.Packet{protocol.PacketHeader{0, CM_DELCHR, 0, 0, 0}, "player1"},
-		&protocol.Packet{protocol.PacketHeader{3, SM_DELCHR_FAIL, 0, 0, 0}, ""},
+		&protocol.Packet{protocol.PacketHeader{2, SM_DELCHR_FAIL, 0, 0, 0}, ""},
 	); err != nil {
 		t.Fatal(err)
 	}

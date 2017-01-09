@@ -2,15 +2,16 @@ package loginserver
 
 import (
 	"github.com/pangliang/MirServer-Go/protocol"
-	"github.com/pangliang/go-dao"
+	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"log"
-	_ "github.com/mattn/go-sqlite3"
 	"net"
 	"bufio"
 	"github.com/pangliang/MirServer-Go/util"
 )
 
 type Session struct {
+	db        *gorm.DB
 	attr   map[string]interface{}
 	Socket net.Conn
 }
@@ -23,7 +24,6 @@ type Option struct {
 
 type LoginServer struct {
 	opt       *Option
-	db        *dao.DB
 	listener  net.Listener
 	waitGroup util.WaitGroupWrapper
 	LoginChan chan <-interface{}
@@ -37,12 +37,9 @@ func New(opt *Option) *LoginServer {
 }
 
 func (s *LoginServer) Main() {
+	if s.opt.IsTest {
 
-	db, err := dao.Open("sqlite3", s.opt.DbPath)
-	if err != nil {
-		log.Fatalf("open database error : %s", err)
 	}
-	s.db = db
 
 	listener, err := net.Listen("tcp", s.opt.Address)
 	if err != nil {
@@ -58,16 +55,21 @@ func (s *LoginServer) Exit() {
 	if s.listener != nil {
 		s.listener.Close()
 	}
-
-	if s.db != nil {
-		s.db.Close()
-	}
 	s.waitGroup.Wait()
 }
 
 func (l *LoginServer) Handle(socket net.Conn) {
 	defer socket.Close()
+
+	db, err := gorm.Open("sqlite3", l.opt.DbPath)
+	if err != nil {
+		log.Printf("open database error : %s", err)
+		return
+	}
+	defer db.Close()
+
 	session := &Session{
+		db:db,
 		Socket: socket,
 		attr:map[string]interface{}{},
 	}

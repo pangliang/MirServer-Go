@@ -2,9 +2,9 @@ package gameserver
 
 import (
 	"github.com/pangliang/MirServer-Go/protocol"
-	"github.com/pangliang/go-dao"
+	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"log"
-	_ "github.com/mattn/go-sqlite3"
 	"net"
 	"bufio"
 	"github.com/pangliang/MirServer-Go/util"
@@ -24,6 +24,7 @@ type Option struct {
 }
 
 type Session struct {
+	db        *gorm.DB
 	attr   map[string]interface{}
 	socket net.Conn
 }
@@ -31,7 +32,6 @@ type Session struct {
 type GameServer struct {
 	opt       *Option
 	env       *env
-	db        *dao.DB
 	listener  net.Listener
 	waitGroup util.WaitGroupWrapper
 	LoginChan <-chan interface{}
@@ -50,12 +50,6 @@ func New(opt *Option) *GameServer {
 }
 
 func (s *GameServer) Main() {
-	db, err := dao.Open("sqlite3", s.opt.DbPath)
-	if err != nil {
-		log.Fatalf("open database error : %s", err)
-	}
-	s.db = db
-
 	listener, err := net.Listen("tcp", s.opt.Address)
 	if err != nil {
 		log.Fatalln("start server error: ", err)
@@ -93,9 +87,15 @@ func (s *GameServer) eventLoop() {
 	}
 }
 
-func (l *GameServer) Handle(socket net.Conn) {
+func (s *GameServer) Handle(socket net.Conn) {
 	defer socket.Close()
+	db, err := gorm.Open("sqlite3", s.opt.DbPath)
+	if err != nil {
+		log.Fatalf("open database error : %s", err)
+	}
+	defer db.Close()
 	session := &Session{
+		db:db,
 		socket: socket,
 		attr:make(map[string]interface{}),
 	}
@@ -117,7 +117,7 @@ func (l *GameServer) Handle(socket net.Conn) {
 			return
 		}
 
-		err = packetHandler(session, packet, l)
+		err = packetHandler(session, packet, s)
 		if err != nil {
 			log.Printf("handler error: %s\n", err)
 		}

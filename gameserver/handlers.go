@@ -35,7 +35,7 @@ var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, s
 			return nil
 		}
 
-		player := Player{
+		player := &Player{
 			UserId:user.Id,
 			Level:1,
 		}
@@ -44,12 +44,12 @@ var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, s
 		player.Job, _ = strconv.Atoi(params[3])
 		player.Gender, _ = strconv.Atoi(params[4])
 
-		_, err = server.db.Save(player)
+		err = session.db.Create(player).Error
 		if err != nil {
 			resp := protocol.NewPacket(SM_NEWCHR_FAIL)
 			resp.Header.Recog = NameExist
 			resp.SendTo(session.socket)
-			return
+			return err
 		}
 
 		protocol.NewPacket(SM_NEWCHR_SUCCESS).SendTo(session.socket)
@@ -85,7 +85,7 @@ var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, s
 		session.attr["user"] = loginUser
 
 		var playerList []Player
-		err = server.db.List(&playerList, "where userId=?", loginUser.Id)
+		err = session.db.Find(&playerList, &Player{UserId:loginUser.Id}).Error
 		if err != nil {
 			resp := protocol.NewPacket(SM_QUERYCHR_FAIL)
 			resp.Header.Recog = 4
@@ -121,18 +121,12 @@ var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, s
 
 		playerName := request.Data
 
-		rs, err := server.db.Exec("delete from player where userId=? and name=?", loginUser.Id, playerName)
-		if err != nil {
+		db := session.db.Delete(Player{}, "user_id=? and name=?", loginUser.Id, playerName)
+		if db.Error != nil || db.RowsAffected != 1{
 			resp := protocol.NewPacket(SM_DELCHR_FAIL)
 			resp.Header.Recog = 2
 			resp.SendTo(session.socket)
-			return
-		}
-		if affected, err := rs.RowsAffected(); err != nil || affected != 1 {
-			resp := protocol.NewPacket(SM_DELCHR_FAIL)
-			resp.Header.Recog = 3
-			resp.SendTo(session.socket)
-			return err
+			return db.Error
 		}
 		resp := protocol.NewPacket(SM_DELCHR_SUCCESS)
 		resp.SendTo(session.socket)

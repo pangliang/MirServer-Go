@@ -1,5 +1,7 @@
 package gameserver
 
+import "github.com/jinzhu/gorm"
+
 type Job int
 const(
 	/**
@@ -29,9 +31,18 @@ const (
 type Player struct {
 	Id uint32
 	UserId uint32
-	Name string
+	Name string `gorm:"unique_index"`
 	Job int
 	Hair int
 	Level uint
 	Gender int
+}
+
+func initDB(db *gorm.DB) error {
+	if err := db.AutoMigrate(
+		&Player{},
+	).Error; err != nil {
+		return err
+	}
+	return nil
 }

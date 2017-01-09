@@ -5,49 +5,47 @@ import (
 	"os"
 	"github.com/pangliang/MirServer-Go/mockclient"
 	"github.com/pangliang/MirServer-Go/protocol"
-	"io/ioutil"
-	"database/sql"
 	"log"
-
-	_ "github.com/mattn/go-sqlite3"
 	"errors"
 	"fmt"
+	"github.com/jinzhu/gorm"
 )
 
 const (
 	SERVER_ADDRESS = "127.0.0.1:7000"
 	DB_PATH = "g:/go_workspace/src/github.com/pangliang/MirServer-Go/mir2.db"
-	TEST_DB_PATH = DB_PATH + ".test"
 )
 
 func initTestDB() (err error) {
-	os.Remove(TEST_DB_PATH)
-	data, err := ioutil.ReadFile(DB_PATH)
+	db, err := gorm.Open("sqlite3", DB_PATH)
 	if err != nil {
-		return
+		log.Fatalf("open database error : %s", err)
 	}
-	err = ioutil.WriteFile(TEST_DB_PATH, data, 0777)
+	err = initDB(db)
 	if err != nil {
-		return
+		log.Fatalln("init database error: ", err)
 	}
 
-	db, err := sql.Open("sqlite3", TEST_DB_PATH)
-	if err != nil {
-		return
-	}
+	db.Delete(User{})
+	db.Delete(ServerInfo{})
 
-	sqls := []string{
-		"delete from user",
-		"delete from serverinfo",
-		"insert into serverinfo values (1,'127.0.0.1',7400,'127.0.0.1',7000,'test1'),(2,'192.168.0.166',7400,'192.168.0.166',7000,'test2')",
-	}
+	db.Create(&ServerInfo{
+		Id:1,
+		GameServerIp:"127.0.0.1",
+		GameServerPort:7400,
+		LoginServerIp:"127.0.0.1",
+		LoginServerPort:7000,
+		Name:"test1",
+	})
 
-	for _,sql := range sqls {
-		_, err = db.Exec(sql)
-		if err != nil {
-			return
-		}
-	}
+	db.Create(&ServerInfo{
+		Id:2,
+		GameServerIp:"192.168.0.166",
+		GameServerPort:7400,
+		LoginServerIp:"192.168.0.166",
+		LoginServerPort:7000,
+		Name:"test2",
+	})
 
 	return nil
 }
@@ -62,7 +60,7 @@ func TestMain(m *testing.M) {
 	opt := &Option{
 		IsTest:true,
 		Address:SERVER_ADDRESS,
-		DbPath:TEST_DB_PATH,
+		DbPath:DB_PATH,
 	}
 	loginServer := New(opt)
 	loginChan := make(chan interface{}, 100)

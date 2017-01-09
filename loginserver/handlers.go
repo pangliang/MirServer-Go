@@ -8,22 +8,6 @@ import (
 	"strings"
 )
 
-type ServerInfo struct {
-	Id              uint32
-	GameServerIp    string
-	GameServerPort  uint32
-	LoginServerIp   string
-	LoginServerPort uint32
-	Name            string
-}
-
-type User struct {
-	Id     uint32
-	Name   string
-	Passwd string
-	Cert   int32
-}
-
 var loginHandlers = map[uint16]func(s *Session, request *protocol.Packet, server *LoginServer) (err error){
 	CM_ADDNEWUSER : func(session *Session, request *protocol.Packet, server *LoginServer) (err error) {
 		params := strings.Split(request.Data, "")
@@ -38,7 +22,7 @@ var loginHandlers = map[uint16]func(s *Session, request *protocol.Packet, server
 			Passwd:strings.Trim(params[2], "\x00"),
 			Cert:0,
 		}
-		_, err = server.db.Save(*user)
+		err = session.db.Create(user).Error
 		if err != nil {
 			resp := protocol.NewPacket(SM_NEWID_FAIL)
 			resp.Header.Recog = 2
@@ -60,26 +44,26 @@ var loginHandlers = map[uint16]func(s *Session, request *protocol.Packet, server
 			BeLock = -5
 		)
 		params := request.Params()
-		var userList []User
-		err = server.db.List(&userList, "where name=?", params[0])
-		if err != nil || len(userList) == 0 {
+		var user User
+		err = session.db.Find(&user, "name=?", params[0]).Error
+		if err != nil {
 			resp := protocol.NewPacket(SM_PASSWD_FAIL)
 			resp.Header.Recog = UserNotFound
 			resp.SendTo(session.Socket)
 			return
 		}
 
-		if userList[0].Passwd != params[1] {
+		if user.Passwd != params[1] {
 			resp := protocol.NewPacket(SM_PASSWD_FAIL)
 			resp.Header.Recog = WrongPwd
 			resp.SendTo(session.Socket)
 			return
 		}
 
-		session.attr["user"] = userList[0]
+		session.attr["user"] = user
 
 		var serverInfoList []ServerInfo
-		err = server.db.List(&serverInfoList, "")
+		err = session.db.Find(&serverInfoList).Error
 		if err != nil {
 			log.Printf("db list error : %s \n ", err)
 			session.Socket.Close()
@@ -100,19 +84,19 @@ var loginHandlers = map[uint16]func(s *Session, request *protocol.Packet, server
 		return nil
 	},
 
-	CM_SELECTSERVER : func(s *Session, request *protocol.Packet, server *LoginServer) (err error) {
+	CM_SELECTSERVER : func(session *Session, request *protocol.Packet, server *LoginServer) (err error) {
 
 		serverName := request.Data
-		var serverInfoList []ServerInfo
-		err = server.db.List(&serverInfoList, "where name=?", serverName)
-		if err != nil || len(serverInfoList) == 0 {
+		var serverInfo ServerInfo
+		err = session.db.Find(&serverInfo, "name=?", serverName).Error
+		if err != nil {
 			resp := &protocol.Packet{}
 			resp.Header.Protocol = SM_ID_NOTFOUND
-			resp.SendTo(s.Socket)
+			resp.SendTo(session.Socket)
 			return
 		}
 
-		user := s.attr["user"].(User)
+		user := session.attr["user"].(User)
 		user.Cert = rand.Int31n(200)
 		server.LoginChan <- user
 
@@ -121,12 +105,12 @@ var loginHandlers = map[uint16]func(s *Session, request *protocol.Packet, server
 		resp.Header.Recog = user.Cert
 
 		resp.Data = fmt.Sprintf("%s/%d/%d",
-			serverInfoList[0].GameServerIp,
-			serverInfoList[0].GameServerPort,
+			serverInfo.GameServerIp,
+			serverInfo.GameServerPort,
 			user.Cert,
 		)
 
-		resp.SendTo(s.Socket)
+		resp.SendTo(session.Socket)
 
 		return nil
 	},
