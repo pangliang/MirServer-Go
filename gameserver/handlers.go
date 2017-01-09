@@ -5,6 +5,7 @@ import (
 	"strings"
 	"strconv"
 	"fmt"
+	"github.com/pangliang/MirServer-Go/loginserver"
 )
 
 var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, server *GameServer) (err error){
@@ -17,21 +18,26 @@ var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, s
 		)
 		params := strings.Split(request.Data, "/")
 		if len(params) < 5 {
-			protocol.NewPacket(SM_NEWCHR_FAIL).SendTo(session.socket)
+			resp := protocol.NewPacket(SM_NEWCHR_FAIL)
+			resp.Header.Recog = 1
+			resp.SendTo(session.socket)
 			return nil
 		}
 
 		server.env.RLock()
-		user, ok := server.env.users[params[0]]
+		user, ok := session.attr["user"].(loginserver.User)
 		server.env.RUnlock()
 
 		if !ok {
-			protocol.NewPacket(SM_NEWCHR_FAIL).SendTo(session.socket)
+			resp := protocol.NewPacket(SM_NEWCHR_FAIL)
+			resp.Header.Recog = SystemErr
+			resp.SendTo(session.socket)
 			return nil
 		}
 
 		player := Player{
 			UserId:user.Id,
+			Level:1,
 		}
 		player.Name = params[1]
 		player.Hair, _ = strconv.Atoi(params[2])
@@ -40,7 +46,9 @@ var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, s
 
 		_, err = server.db.Save(player)
 		if err != nil {
-			protocol.NewPacket(SM_NEWCHR_FAIL).SendTo(session.socket)
+			resp := protocol.NewPacket(SM_NEWCHR_FAIL)
+			resp.Header.Recog = NameExist
+			resp.SendTo(session.socket)
 			return
 		}
 
@@ -49,7 +57,7 @@ var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, s
 	},
 	CM_QUERYCHR : func(session *Session, request *protocol.Packet, server *GameServer) (err error) {
 		params := strings.Split(request.Data, "/")
-		if len(params) < 1 {
+		if len(params) < 2 {
 			resp := protocol.NewPacket(SM_QUERYCHR_FAIL)
 			resp.Header.Recog = 1
 			resp.SendTo(session.socket)

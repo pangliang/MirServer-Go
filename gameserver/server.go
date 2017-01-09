@@ -106,7 +106,7 @@ func (l *GameServer) Handle(socket net.Conn) {
 			log.Printf("%v recv err %v", socket.RemoteAddr(), err)
 			break
 		}
-		log.Printf("recv:%s\n", string(buf))
+		//log.Printf("recv:%s\n", string(buf))
 
 		packet := protocol.ParseClient(buf)
 		log.Printf("packet:%v\n", packet)

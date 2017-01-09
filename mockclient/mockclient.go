@@ -42,7 +42,7 @@ func (c *MockClient)Read() (*protocol.Packet, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("MockClient recv: %s\n", string(buf))
+	//log.Printf("MockClient recv: %s\n", string(buf))
 
 	packet := protocol.ParseServer(buf)
 	log.Printf("MockClient packet:%v\n", packet)

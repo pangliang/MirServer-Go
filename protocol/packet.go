@@ -50,14 +50,14 @@ func (packet *Packet) Params() []string {
 func (packet *Packet) SendTo(socket net.Conn) {
 	buf := packet.encode()
 	data := fmt.Sprintf("#%s!", buf)
-	log.Printf("send: %s\n", data)
+	//log.Printf("send: %s\n", data)
 	socket.Write([]byte(data))
 }
 
 func (packet *Packet) SendToServer(seq uint32, socket net.Conn) {
 	buf := packet.encode()
 	data := fmt.Sprintf("#%d%s!", seq, buf)
-	log.Printf("send: %s\n", data)
+	//log.Printf("send: %s\n", data)
 	socket.Write([]byte(data))
 }
 

@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/pangliang/MirServer-Go/loginserver"
+	"strconv"
 )
 
 const (
@@ -56,6 +57,7 @@ func initTestDB() (err error) {
 }
 
 var client *mockclient.MockClient
+var cert int
 
 func TestMain(m *testing.M) {
 
@@ -128,6 +130,7 @@ func TestLogin(t *testing.T) {
 		resp.Header.Protocol != loginserver.SM_SELECTSERVER_OK {
 		t.Fatal(fmt.Sprint(resp))
 	}
+	cert, _ = strconv.Atoi(params[2])
 
 	client, err = mockclient.New(GAME_SERVER_ADDRESS)
 	if err != nil {
@@ -135,8 +138,66 @@ func TestLogin(t *testing.T) {
 	}
 
 	if err := sendAndCheck(client,
-		&protocol.Packet{protocol.PacketHeader{0, CM_QUERYCHR, 0, 0, 0}, "pangliang/" + params[2]},
+		&protocol.Packet{protocol.PacketHeader{0, CM_QUERYCHR, 0, 0, 0}, fmt.Sprintf("pangliang/%d",cert)},
 		&protocol.Packet{protocol.PacketHeader{0, SM_QUERYCHR, 0, 0, 0}, ""},
+	); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFailLogin(t *testing.T) {
+	newClient, err := mockclient.New(GAME_SERVER_ADDRESS)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := sendAndCheck(newClient,
+		&protocol.Packet{protocol.PacketHeader{0, CM_QUERYCHR, 0, 0, 0}, "pangliang"},
+		&protocol.Packet{protocol.PacketHeader{1, SM_QUERYCHR_FAIL, 0, 0, 0}, ""},
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := sendAndCheck(newClient,
+		&protocol.Packet{protocol.PacketHeader{0, CM_QUERYCHR, 0, 0, 0}, "pangliang1/1000"},
+		&protocol.Packet{protocol.PacketHeader{2, SM_QUERYCHR_FAIL, 0, 0, 0}, ""},
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := sendAndCheck(newClient,
+		&protocol.Packet{protocol.PacketHeader{0, CM_QUERYCHR, 0, 0, 0}, "pangliang/1000"},
+		&protocol.Packet{protocol.PacketHeader{3, SM_QUERYCHR_FAIL, 0, 0, 0}, ""},
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := sendAndCheck(newClient,
+		&protocol.Packet{protocol.PacketHeader{0, CM_NEWCHR, 0, 0, 0}, "pangliang/player1/1/1/1/"},
+		&protocol.Packet{protocol.PacketHeader{4, SM_NEWCHR_FAIL, 0, 0, 0}, ""},
+	); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCreatePlayer(t *testing.T) {
+	if err := sendAndCheck(client,
+		&protocol.Packet{protocol.PacketHeader{0, CM_NEWCHR, 0, 0, 0}, "pangliang/player1/3/2/1/"},
+		&protocol.Packet{protocol.PacketHeader{0, SM_NEWCHR_SUCCESS, 0, 0, 0}, ""},
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := sendAndCheck(client,
+		&protocol.Packet{protocol.PacketHeader{0, CM_QUERYCHR, 0, 0, 0}, fmt.Sprintf("pangliang/%d",cert)},
+		&protocol.Packet{protocol.PacketHeader{1, SM_QUERYCHR, 0, 0, 0}, "player1/2/3/1/1/"},
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := sendAndCheck(client,
+		&protocol.Packet{protocol.PacketHeader{0, CM_NEWCHR, 0, 0, 0}, "pangliang/player1/1/1/1/"},
+		&protocol.Packet{protocol.PacketHeader{2, SM_NEWCHR_FAIL, 0, 0, 0}, ""},
 	); err != nil {
 		t.Fatal(err)
 	}
