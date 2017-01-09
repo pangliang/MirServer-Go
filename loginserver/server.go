@@ -58,6 +58,10 @@ func (s *LoginServer) Exit() {
 	if s.listener != nil {
 		s.listener.Close()
 	}
+
+	if s.db != nil {
+		s.db.Close()
+	}
 	s.waitGroup.Wait()
 }
 

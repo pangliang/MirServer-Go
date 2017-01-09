@@ -5,6 +5,7 @@ import (
 	"log"
 	"fmt"
 	"math/rand"
+	"strings"
 )
 
 type ServerInfo struct {
@@ -24,6 +25,31 @@ type User struct {
 }
 
 var loginHandlers = map[uint16]func(s *Session, request *protocol.Packet, server *LoginServer) (err error){
+	CM_ADDNEWUSER : func(session *Session, request *protocol.Packet, server *LoginServer) (err error) {
+		params := strings.Split(request.Data, "")
+		if len(params) < 4 {
+			resp := protocol.NewPacket(SM_NEWID_FAIL)
+			resp.Header.Recog = 1
+			resp.SendTo(session.Socket)
+			return
+		}
+		user := &User{
+			Name:strings.Trim(params[1], "\x00"),
+			Passwd:strings.Trim(params[2], "\x00"),
+			Cert:0,
+		}
+		_, err = server.db.Save(*user)
+		if err != nil {
+			resp := protocol.NewPacket(SM_NEWID_FAIL)
+			resp.Header.Recog = 2
+			resp.SendTo(session.Socket)
+			return
+		}
+
+		resp := protocol.NewPacket(SM_NEWID_SUCCESS)
+		resp.SendTo(session.Socket)
+		return nil
+	},
 	CM_IDPASSWORD : func(session *Session, request *protocol.Packet, server *LoginServer) (err error) {
 		const (
 			UserNotFound = 0
