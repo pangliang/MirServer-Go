@@ -11,15 +11,16 @@ import (
 )
 
 type Session struct {
-	db        *gorm.DB
+	db     *gorm.DB
 	attr   map[string]interface{}
 	Socket net.Conn
 }
 
 type Option struct {
-	IsTest  bool
-	Address string
-	DbPath  string
+	IsTest         bool
+	Address        string
+	DataSourceName string
+	DriverName     string
 }
 
 type LoginServer struct {
@@ -58,10 +59,10 @@ func (s *LoginServer) Exit() {
 	s.waitGroup.Wait()
 }
 
-func (l *LoginServer) Handle(socket net.Conn) {
+func (s *LoginServer) Handle(socket net.Conn) {
 	defer socket.Close()
 
-	db, err := gorm.Open("sqlite3", l.opt.DbPath)
+	db, err := gorm.Open(s.opt.DriverName, s.opt.DataSourceName)
 	if err != nil {
 		log.Printf("open database error : %s", err)
 		return
@@ -91,7 +92,7 @@ func (l *LoginServer) Handle(socket net.Conn) {
 			return
 		}
 
-		err = packetHandler(session, packet, l)
+		err = packetHandler(session, packet, s)
 		if err != nil {
 			log.Printf("handler error: %s\n", err)
 		}

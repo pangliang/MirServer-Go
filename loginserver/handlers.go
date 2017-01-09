@@ -19,7 +19,7 @@ var loginHandlers = map[uint16]func(s *Session, request *protocol.Packet, server
 		}
 		user := &User{
 			Name:strings.Trim(params[1], "\x00"),
-			Passwd:strings.Trim(params[2], "\x00"),
+			Password:strings.Trim(params[2], "\x00"),
 			Cert:0,
 		}
 		err = session.db.Create(user).Error
@@ -53,7 +53,7 @@ var loginHandlers = map[uint16]func(s *Session, request *protocol.Packet, server
 			return
 		}
 
-		if user.Passwd != params[1] {
+		if user.Password != params[1] {
 			resp := protocol.NewPacket(SM_PASSWD_FAIL)
 			resp.Header.Recog = WrongPwd
 			resp.SendTo(session.Socket)

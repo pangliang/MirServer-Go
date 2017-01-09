@@ -13,32 +13,30 @@ import (
 	"fmt"
 	"github.com/pangliang/MirServer-Go/loginserver"
 	"strconv"
+	"github.com/pangliang/MirServer-Go/tools"
 )
 
 const (
 	LOGIN_SERVER_ADDRESS = "127.0.0.1:7000"
 	GAME_SERVER_ADDRESS = "127.0.0.1:7400"
-	DB_PATH = "g:/go_workspace/src/github.com/pangliang/MirServer-Go/mir2.db"
+	DB_SOURCE = "g:/go_workspace/src/github.com/pangliang/MirServer-Go/mir2.db"
+	DB_DRIVER = "sqlite3"
 )
 
 func initTestDB() (err error) {
-	db, err := gorm.Open("sqlite3", DB_PATH)
+	tools.CreateDatabase(loginserver.Tables, DB_DRIVER, DB_SOURCE, true)
+	tools.CreateDatabase(Tables, DB_DRIVER, DB_SOURCE, true)
+
+	db, err := gorm.Open(DB_DRIVER, DB_SOURCE)
+	defer db.Close()
 	if err != nil {
 		log.Fatalf("open database error : %s", err)
 	}
-	err = initDB(db)
-	if err != nil {
-		log.Fatalln("init database error: ", err)
-	}
-
-	db.Delete(loginserver.User{})
 	db.Create(&loginserver.User{
 		Id:1,
 		Name:"pangliang",
-		Passwd:"pwd",
+		Password:"pwd",
 	})
-
-	db.Delete(loginserver.ServerInfo{})
 	db.Create(&loginserver.ServerInfo{
 		Id:1,
 		GameServerIp:"127.0.0.1",
@@ -57,8 +55,6 @@ func initTestDB() (err error) {
 		Name:"test2",
 	})
 
-	db.Delete(Player{})
-
 	return
 }
 
@@ -76,7 +72,8 @@ func TestMain(m *testing.M) {
 	loginServer := loginserver.New(&loginserver.Option{
 		IsTest:true,
 		Address:LOGIN_SERVER_ADDRESS,
-		DbPath:DB_PATH,
+		DataSourceName:DB_SOURCE,
+		DriverName:DB_DRIVER,
 	})
 	loginServer.LoginChan = loginChan
 	loginServer.Main()
@@ -84,7 +81,8 @@ func TestMain(m *testing.M) {
 	gameServer := New(&Option{
 		IsTest:true,
 		Address:GAME_SERVER_ADDRESS,
-		DbPath:DB_PATH,
+		DataSourceName:DB_SOURCE,
+		DriverName:DB_DRIVER,
 	})
 	gameServer.LoginChan = loginChan
 	gameServer.Main()

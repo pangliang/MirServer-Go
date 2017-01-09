@@ -9,21 +9,22 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jinzhu/gorm"
+	"github.com/pangliang/MirServer-Go/tools"
 )
 
 const (
 	SERVER_ADDRESS = "127.0.0.1:7000"
-	DB_PATH = "g:/go_workspace/src/github.com/pangliang/MirServer-Go/mir2.db"
+	DB_SOURCE = "g:/go_workspace/src/github.com/pangliang/MirServer-Go/mir2.db"
+	DB_DRIVER = "sqlite3"
 )
 
 func initTestDB() (err error) {
-	db, err := gorm.Open("sqlite3", DB_PATH)
+	tools.CreateDatabase(Tables, DB_DRIVER, DB_SOURCE, true)
+
+	db, err := gorm.Open(DB_DRIVER, DB_SOURCE)
+	defer db.Close()
 	if err != nil {
 		log.Fatalf("open database error : %s", err)
-	}
-	err = initDB(db)
-	if err != nil {
-		log.Fatalln("init database error: ", err)
 	}
 
 	db.Delete(User{})
@@ -60,7 +61,8 @@ func TestMain(m *testing.M) {
 	opt := &Option{
 		IsTest:true,
 		Address:SERVER_ADDRESS,
-		DbPath:DB_PATH,
+		DataSourceName:DB_SOURCE,
+		DriverName:DB_DRIVER,
 	}
 	loginServer := New(opt)
 	loginChan := make(chan interface{}, 100)
@@ -72,7 +74,7 @@ func TestMain(m *testing.M) {
 	os.Exit(retCode)
 }
 
-func sendAndCheck(client *mockclient.MockClient, request *protocol.Packet, expect *protocol.Packet) (err error){
+func sendAndCheck(client *mockclient.MockClient, request *protocol.Packet, expect *protocol.Packet) (err error) {
 	client.Send(request)
 	resp, err := client.Read()
 	if err != nil {
@@ -92,7 +94,7 @@ func TestCreateUser(t *testing.T) {
 	}
 
 	if err := sendAndCheck(client,
-		&protocol.Packet{protocol.PacketHeader{0, CM_ADDNEWUSER, 0, 0, 0}, "11"+string([]byte{0,0,0,0})+"11\x00\x00\x00\x00"},
+		&protocol.Packet{protocol.PacketHeader{0, CM_ADDNEWUSER, 0, 0, 0}, "11" + string([]byte{0, 0, 0, 0}) + "11\x00\x00\x00\x00"},
 		&protocol.Packet{protocol.PacketHeader{0, SM_NEWID_SUCCESS, 0, 0, 0}, ""},
 	); err != nil {
 		t.Fatal(err)
@@ -113,12 +115,12 @@ func TestLogin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	client.Send(&protocol.Packet{protocol.PacketHeader{0, CM_SELECTSERVER, 0,0,0}, "test1"})
+	client.Send(&protocol.Packet{protocol.PacketHeader{0, CM_SELECTSERVER, 0, 0, 0}, "test1"})
 	resp, err := client.Read()
 	if err != nil {
 		t.Fatal(fmt.Sprint(err))
 	}
-	if  params := resp.Params(); (len(params) != 3 || params[0] != "127.0.0.1" || params[1] != "7400") ||
+	if params := resp.Params(); (len(params) != 3 || params[0] != "127.0.0.1" || params[1] != "7400") ||
 		resp.Header.Protocol != SM_SELECTSERVER_OK {
 		t.Fatal(fmt.Sprint(resp))
 	}

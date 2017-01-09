@@ -1,29 +1,22 @@
 package loginserver
 
-import "github.com/jinzhu/gorm"
+var Tables = []interface{}{
+	&ServerInfo{},
+	&User{},
+}
 
 type ServerInfo struct {
 	Id              uint32
-	GameServerIp    string
-	GameServerPort  uint32
+	Name            string
 	LoginServerIp   string
 	LoginServerPort uint32
-	Name            string
+	GameServerIp    string
+	GameServerPort  uint32
 }
 
 type User struct {
-	Id     uint32
-	Name   string
-	Passwd string
-	Cert   int32
-}
-
-func initDB(db *gorm.DB) error {
-	if err := db.AutoMigrate(
-		&ServerInfo{},
-		&User{},
-	).Error; err != nil {
-		return err
-	}
-	return nil
+	Id       uint32
+	Name     string
+	Password string
+	Cert     int32
 }

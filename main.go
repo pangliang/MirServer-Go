@@ -36,7 +36,8 @@ func (p *program) Start() error {
 	flagSet := flag.NewFlagSet("loginserver", flag.ExitOnError)
 	flagSet.BoolVar(&loginOpt.IsTest, "test.v", false, "")
 	flagSet.StringVar(&loginOpt.Address, "login-address", "0.0.0.0:7000", "<addr>:<port> to listen on for TCP clients")
-	flagSet.StringVar(&loginOpt.DbPath, "dbPath", "./mir2.db", "database file path")
+	flagSet.StringVar(&loginOpt.DataSourceName, "dbSource", "./mir2.db", "DataSourceName")
+	flagSet.StringVar(&loginOpt.DriverName, "dbDriver", "sqlite3", "database DriverName")
 	flagSet.Parse(os.Args[1:])
 
 	loginChan := make(chan interface{}, 10)
@@ -49,7 +50,8 @@ func (p *program) Start() error {
 	flagSet = flag.NewFlagSet("gameserver", flag.ExitOnError)
 	flagSet.BoolVar(&gameOpt.IsTest, "test.v", false, "")
 	flagSet.StringVar(&gameOpt.Address, "game-address", "0.0.0.0:7400", "<addr>:<port> to listen on for TCP clients")
-	flagSet.StringVar(&gameOpt.DbPath, "dbPath", "./mir2.db", "database file path")
+	flagSet.StringVar(&gameOpt.DataSourceName, "dbSource", "./mir2.db", "DataSourceName")
+	flagSet.StringVar(&gameOpt.DriverName, "dbDriver", "sqlite3", "database DriverName")
 	flagSet.Parse(os.Args[1:])
 
 	p.gameServer = gameserver.New(gameOpt)

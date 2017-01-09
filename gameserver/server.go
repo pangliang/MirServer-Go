@@ -18,9 +18,10 @@ type env struct {
 }
 
 type Option struct {
-	IsTest  bool
-	Address string
-	DbPath  string
+	IsTest         bool
+	Address        string
+	DataSourceName string
+	DriverName     string
 }
 
 type Session struct {
@@ -89,7 +90,7 @@ func (s *GameServer) eventLoop() {
 
 func (s *GameServer) Handle(socket net.Conn) {
 	defer socket.Close()
-	db, err := gorm.Open("sqlite3", s.opt.DbPath)
+	db, err := gorm.Open(s.opt.DriverName, s.opt.DataSourceName)
 	if err != nil {
 		log.Fatalf("open database error : %s", err)
 	}
