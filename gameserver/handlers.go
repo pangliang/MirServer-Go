@@ -50,7 +50,9 @@ var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, s
 	CM_QUERYCHR : func(session *Session, request *protocol.Packet, server *GameServer) (err error) {
 		params := strings.Split(request.Data, "/")
 		if len(params) < 1 {
-			protocol.NewPacket(SM_QUERYCHR_FAIL).SendTo(session.socket)
+			resp := protocol.NewPacket(SM_QUERYCHR_FAIL)
+			resp.Header.Recog = 1
+			resp.SendTo(session.socket)
 			return
 		}
 		username := params[0]
@@ -59,13 +61,17 @@ var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, s
 		server.env.RUnlock()
 
 		if !ok {
-			protocol.NewPacket(SM_QUERYCHR_FAIL).SendTo(session.socket)
+			resp := protocol.NewPacket(SM_QUERYCHR_FAIL)
+			resp.Header.Recog = 2
+			resp.SendTo(session.socket)
 			return
 		}
 
 		cert, err := strconv.Atoi(params[1])
 		if err != nil || int32(cert) != loginUser.Cert {
-			protocol.NewPacket(SM_QUERYCHR_FAIL).SendTo(session.socket)
+			resp := protocol.NewPacket(SM_QUERYCHR_FAIL)
+			resp.Header.Recog = 3
+			resp.SendTo(session.socket)
 			return
 		}
 		session.attr["user"] = loginUser
@@ -73,13 +79,15 @@ var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, s
 		var playerList []Player
 		err = server.db.List(&playerList, "where userId=?", loginUser.Id)
 		if err != nil {
-			protocol.NewPacket(SM_QUERYCHR_FAIL).SendTo(session.socket)
-			return err
+			resp := protocol.NewPacket(SM_QUERYCHR_FAIL)
+			resp.Header.Recog = 4
+			resp.SendTo(session.socket)
+			return
 		}
 
+		resp := protocol.NewPacket(SM_QUERYCHR)
+		resp.Header.Recog = int32(len(playerList))
 		if len(playerList) > 0 {
-			resp := protocol.NewPacket(SM_QUERYCHR)
-			resp.Header.Recog = int32(len(playerList))
 			for _, player := range playerList {
 				resp.Data += fmt.Sprintf("%s/%d/%d/%d/%d/",
 					player.Name,
@@ -89,10 +97,8 @@ var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, s
 					player.Gender,
 				)
 			}
-
-			resp.SendTo(session.socket)
 		}
-
+		resp.SendTo(session.socket)
 		return nil
 	},
 }

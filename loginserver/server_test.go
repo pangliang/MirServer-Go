@@ -20,7 +20,7 @@ const (
 	TEST_DB_PATH = DB_PATH + ".test"
 )
 
-func initDB() (err error) {
+func initTestDB() (err error) {
 	os.Remove(TEST_DB_PATH)
 	data, err := ioutil.ReadFile(DB_PATH)
 	if err != nil {
@@ -36,19 +36,17 @@ func initDB() (err error) {
 		return
 	}
 
-	_, err = db.Exec("delete from user")
-	if err != nil {
-		return
+	sqls := []string{
+		"delete from user",
+		"delete from serverinfo",
+		"insert into serverinfo values (1,'127.0.0.1',7400,'127.0.0.1',7000,'test1'),(2,'192.168.0.166',7400,'192.168.0.166',7000,'test2')",
 	}
 
-	_, err = db.Exec("delete from serverinfo")
-	if err != nil {
-		return
-	}
-
-	_, err = db.Exec("insert into serverinfo values (1,'',0,'',0,'test1'),(2,'',0,'',0,'test2')")
-	if err != nil {
-		return
+	for _,sql := range sqls {
+		_, err = db.Exec(sql)
+		if err != nil {
+			return
+		}
 	}
 
 	return nil
@@ -56,7 +54,7 @@ func initDB() (err error) {
 
 func TestMain(m *testing.M) {
 
-	err := initDB()
+	err := initTestDB()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -116,6 +114,17 @@ func TestLogin(t *testing.T) {
 	); err != nil {
 		t.Fatal(err)
 	}
+
+	client.Send(&protocol.Packet{protocol.PacketHeader{0, CM_SELECTSERVER, 0,0,0}, "test1"})
+	resp, err := client.Read()
+	if err != nil {
+		t.Fatal(fmt.Sprint(err))
+	}
+	if  params := resp.Params(); (len(params) != 3 || params[0] != "127.0.0.1" || params[1] != "7400") ||
+		resp.Header.Protocol != SM_SELECTSERVER_OK {
+		t.Fatal(fmt.Sprint(resp))
+	}
+
 }
 
 func TestLoginFail(t *testing.T) {

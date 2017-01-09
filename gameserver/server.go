@@ -44,6 +44,7 @@ func New(opt *Option) *GameServer {
 		env:&env{
 			users:make(map[string]loginserver.User),
 		},
+		exitChan:make(chan int),
 	}
 	return gameServer
 }
@@ -63,6 +64,10 @@ func (s *GameServer) Main() {
 	s.waitGroup.Wrap(func() {
 		protocol.TCPServer(listener, s)
 	})
+
+	s.waitGroup.Wrap(func() {
+		s.eventLoop()
+	})
 }
 
 func (s *GameServer) Exit() {
@@ -78,7 +83,7 @@ func (s *GameServer) eventLoop() {
 		select {
 		case <-s.exitChan:
 			log.Print("exit EventLoop")
-			break
+			return
 		case e := <-s.LoginChan:
 			user := e.(loginserver.User)
 			s.env.Lock()
