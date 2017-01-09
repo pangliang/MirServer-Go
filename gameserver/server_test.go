@@ -180,9 +180,16 @@ func TestFailLogin(t *testing.T) {
 	}
 }
 
-func TestCreatePlayer(t *testing.T) {
+func TestCreateDeletePlayer(t *testing.T) {
 	if err := sendAndCheck(client,
 		&protocol.Packet{protocol.PacketHeader{0, CM_NEWCHR, 0, 0, 0}, "pangliang/player1/3/2/1/"},
+		&protocol.Packet{protocol.PacketHeader{0, SM_NEWCHR_SUCCESS, 0, 0, 0}, ""},
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := sendAndCheck(client,
+		&protocol.Packet{protocol.PacketHeader{0, CM_NEWCHR, 0, 0, 0}, "pangliang/player2/1/1/2/"},
 		&protocol.Packet{protocol.PacketHeader{0, SM_NEWCHR_SUCCESS, 0, 0, 0}, ""},
 	); err != nil {
 		t.Fatal(err)
@@ -198,6 +205,20 @@ func TestCreatePlayer(t *testing.T) {
 	if err := sendAndCheck(client,
 		&protocol.Packet{protocol.PacketHeader{0, CM_NEWCHR, 0, 0, 0}, "pangliang/player1/1/1/1/"},
 		&protocol.Packet{protocol.PacketHeader{2, SM_NEWCHR_FAIL, 0, 0, 0}, ""},
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := sendAndCheck(client,
+		&protocol.Packet{protocol.PacketHeader{0, CM_DELCHR, 0, 0, 0}, "player1"},
+		&protocol.Packet{protocol.PacketHeader{0, SM_DELCHR_SUCCESS, 0, 0, 0}, ""},
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := sendAndCheck(client,
+		&protocol.Packet{protocol.PacketHeader{0, CM_DELCHR, 0, 0, 0}, "player1"},
+		&protocol.Packet{protocol.PacketHeader{3, SM_DELCHR_FAIL, 0, 0, 0}, ""},
 	); err != nil {
 		t.Fatal(err)
 	}

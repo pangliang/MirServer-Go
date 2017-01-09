@@ -109,4 +109,34 @@ var gameHandlers = map[uint16]func(session *Session, request *protocol.Packet, s
 		resp.SendTo(session.socket)
 		return nil
 	},
+	CM_DELCHR:func(session *Session, request *protocol.Packet, server *GameServer) (err error) {
+
+		loginUser, ok := session.attr["user"].(loginserver.User)
+		if !ok {
+			resp := protocol.NewPacket(SM_DELCHR_FAIL)
+			resp.Header.Recog = 1
+			resp.SendTo(session.socket)
+			return
+		}
+
+		playerName := request.Data
+
+		rs, err := server.db.Exec("delete from player where userId=? and name=?", loginUser.Id, playerName)
+		if err != nil {
+			resp := protocol.NewPacket(SM_DELCHR_FAIL)
+			resp.Header.Recog = 2
+			resp.SendTo(session.socket)
+			return
+		}
+		if affected, err := rs.RowsAffected(); err != nil || affected != 1 {
+			resp := protocol.NewPacket(SM_DELCHR_FAIL)
+			resp.Header.Recog = 3
+			resp.SendTo(session.socket)
+			return err
+		}
+		resp := protocol.NewPacket(SM_DELCHR_SUCCESS)
+		resp.SendTo(session.socket)
+
+		return nil
+	},
 }
