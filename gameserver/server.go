@@ -6,7 +6,6 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"log"
 	"net"
-	"bufio"
 	"github.com/pangliang/MirServer-Go/util"
 	"sync"
 	"github.com/pangliang/MirServer-Go/loginserver"
@@ -14,7 +13,7 @@ import (
 
 type env struct {
 	sync.RWMutex
-	users map[string]loginserver.User
+	users map[string]*loginserver.User
 }
 
 type Option struct {
@@ -25,9 +24,9 @@ type Option struct {
 }
 
 type Session struct {
-	db        *gorm.DB
-	attr   map[string]interface{}
+	db     *gorm.DB
 	socket net.Conn
+	server *GameServer
 }
 
 type GameServer struct {
@@ -43,7 +42,7 @@ func New(opt *Option) *GameServer {
 	gameServer := &GameServer{
 		opt:opt,
 		env:&env{
-			users:make(map[string]loginserver.User),
+			users:make(map[string]*loginserver.User),
 		},
 		exitChan:make(chan int),
 	}
@@ -80,7 +79,7 @@ func (s *GameServer) eventLoop() {
 			log.Print("exit EventLoop")
 			return
 		case e := <-s.LoginChan:
-			user := e.(loginserver.User)
+			user := e.(*loginserver.User)
 			s.env.Lock()
 			s.env.users[user.Name] = user
 			s.env.Unlock()
@@ -98,29 +97,7 @@ func (s *GameServer) Handle(socket net.Conn) {
 	session := &Session{
 		db:db,
 		socket: socket,
-		attr:make(map[string]interface{}),
+		server: s,
 	}
-	for {
-		reader := bufio.NewReader(socket)
-		buf, err := reader.ReadBytes('!')
-		if err != nil {
-			log.Printf("%v recv err %v", socket.RemoteAddr(), err)
-			break
-		}
-		//log.Printf("recv:%s\n", string(buf))
-
-		packet := protocol.ParseClient(buf)
-		log.Printf("packet:%v\n", packet)
-
-		packetHandler, ok := gameHandlers[packet.Header.Protocol]
-		if !ok {
-			log.Printf("handler not found for protocol : %d \n", packet.Header.Protocol)
-			return
-		}
-
-		err = packetHandler(session, packet, s)
-		if err != nil {
-			log.Printf("handler error: %s\n", err)
-		}
-	}
+	protocol.IOLoop(socket, gameLoginHandler, session)
 }

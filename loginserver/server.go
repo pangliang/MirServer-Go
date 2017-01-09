@@ -6,14 +6,13 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"log"
 	"net"
-	"bufio"
 	"github.com/pangliang/MirServer-Go/util"
 )
 
 type Session struct {
 	db     *gorm.DB
-	attr   map[string]interface{}
-	Socket net.Conn
+	socket net.Conn
+	server *LoginServer
 }
 
 type Option struct {
@@ -71,30 +70,9 @@ func (s *LoginServer) Handle(socket net.Conn) {
 
 	session := &Session{
 		db:db,
-		Socket: socket,
-		attr:map[string]interface{}{},
+		socket: socket,
+		server:s,
 	}
-	for {
-		reader := bufio.NewReader(socket)
-		buf, err := reader.ReadBytes('!')
-		if err != nil {
-			log.Printf("%v recv err %v", socket.RemoteAddr(), err)
-			break
-		}
-		//log.Printf("recv:%s\n", string(buf))
 
-		packet := protocol.ParseClient(buf)
-		log.Printf("packet:%v\n", packet)
-
-		packetHandler, ok := loginHandlers[packet.Header.Protocol]
-		if !ok {
-			log.Printf("handler not found for protocol : %d \n", packet.Header.Protocol)
-			return
-		}
-
-		err = packetHandler(session, packet, s)
-		if err != nil {
-			log.Printf("handler error: %s\n", err)
-		}
-	}
+	protocol.IOLoop(socket, loginHandlers, session)
 }

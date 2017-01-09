@@ -33,9 +33,12 @@ func initTestDB() (err error) {
 		log.Fatalf("open database error : %s", err)
 	}
 	db.Create(&loginserver.User{
-		Id:1,
 		Name:"pangliang",
 		Password:"pwd",
+	})
+	db.Create(&loginserver.User{
+		Name:"11",
+		Password:"11",
 	})
 	db.Create(&loginserver.ServerInfo{
 		Id:1,
@@ -176,15 +179,18 @@ func TestFailLogin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := sendAndCheck(newClient,
-		&protocol.Packet{protocol.PacketHeader{0, CM_NEWCHR, 0, 0, 0}, "pangliang/player1/1/1/1/"},
-		&protocol.Packet{protocol.PacketHeader{4, SM_NEWCHR_FAIL, 0, 0, 0}, ""},
-	); err != nil {
-		t.Fatal(err)
+	newClient.Send(&protocol.Packet{protocol.PacketHeader{0, CM_NEWCHR, 0, 0, 0}, "pangliang/player1/1/1/1/"})
+	_, err = newClient.Read()
+	if err == nil || err.Error() != "EOF" {
+		t.Fatal(fmt.Sprint(err))
 	}
 }
 
 func TestCreateDeletePlayer(t *testing.T) {
+	if client == nil {
+		t.Fatal("client is not")
+	}
+
 	if err := sendAndCheck(client,
 		&protocol.Packet{protocol.PacketHeader{0, CM_NEWCHR, 0, 0, 0}, "pangliang/player1/3/2/1/"},
 		&protocol.Packet{protocol.PacketHeader{0, SM_NEWCHR_SUCCESS, 0, 0, 0}, ""},

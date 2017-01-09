@@ -7,6 +7,7 @@ import (
 	"net"
 	"strings"
 	"fmt"
+	"bufio"
 )
 
 var decode6BitMask = [...]byte{0xfc, 0xf8, 0xf0, 0xe0, 0xc0}
@@ -35,6 +36,33 @@ func (header *PacketHeader) Read(buf []byte) {
 type Packet struct {
 	Header PacketHeader
 	Data   string
+}
+
+type PacketHandler func(packet *Packet, args... interface{}) error
+
+func IOLoop(socket net.Conn, handlers map[uint16]PacketHandler, args... interface{}) {
+	reader := bufio.NewReader(socket)
+	for {
+		buf, err := reader.ReadBytes('!')
+		if err != nil {
+			log.Printf("%v recv err %v", socket.RemoteAddr(), err)
+			return
+		}
+		//log.Printf("recv:%s\n", string(buf))
+
+		packet := ParseClient(buf)
+		log.Printf("packet:%v\n", packet)
+
+		packetHandler, ok := handlers[packet.Header.Protocol]
+		if !ok {
+			log.Printf("handler not found for protocol : %d \n", packet.Header.Protocol)
+			return
+		}
+		err = packetHandler(packet, args...)
+		if err != nil {
+			log.Printf("handler error: %v", err)
+		}
+	}
 }
 
 func NewPacket(protocolId uint16) *Packet {
