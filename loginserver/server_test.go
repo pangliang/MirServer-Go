@@ -1,27 +1,27 @@
 package loginserver
 
 import (
-	"testing"
-	"os"
-	"github.com/pangliang/MirServer-Go/mockclient"
-	"github.com/pangliang/MirServer-Go/protocol"
-	"log"
 	"errors"
 	"fmt"
+	"log"
+	"os"
+	"testing"
+	"io/ioutil"
+
 	"github.com/jinzhu/gorm"
+	"github.com/pangliang/MirServer-Go/mockclient"
+	"github.com/pangliang/MirServer-Go/protocol"
 	"github.com/pangliang/MirServer-Go/tools"
 )
 
 const (
 	SERVER_ADDRESS = "127.0.0.1:7000"
-	DB_SOURCE = "g:/go_workspace/src/github.com/pangliang/MirServer-Go/mir2.db"
-	DB_DRIVER = "sqlite3"
+	DB_DRIVER      = "sqlite3"
 )
 
-func initTestDB() (err error) {
-	tools.CreateDatabase(Tables, DB_DRIVER, DB_SOURCE, true)
-
-	db, err := gorm.Open(DB_DRIVER, DB_SOURCE)
+func initTestDB(dbFile string) (err error) {
+	tools.CreateDatabase(Tables, DB_DRIVER, dbFile, true)
+	db, err := gorm.Open(DB_DRIVER, dbFile)
 	defer db.Close()
 	if err != nil {
 		log.Fatalf("open database error : %s", err)
@@ -31,38 +31,40 @@ func initTestDB() (err error) {
 	db.Delete(ServerInfo{})
 
 	db.Create(&ServerInfo{
-		Id:1,
-		GameServerIp:"127.0.0.1",
-		GameServerPort:7400,
-		LoginServerIp:"127.0.0.1",
-		LoginServerPort:7000,
-		Name:"test1",
+		Id:              1,
+		GameServerIp:    "127.0.0.1",
+		GameServerPort:  7400,
+		LoginServerIp:   "127.0.0.1",
+		LoginServerPort: 7000,
+		Name:            "test1",
 	})
 
 	db.Create(&ServerInfo{
-		Id:2,
-		GameServerIp:"192.168.0.166",
-		GameServerPort:7400,
-		LoginServerIp:"192.168.0.166",
-		LoginServerPort:7000,
-		Name:"test2",
+		Id:              2,
+		GameServerIp:    "192.168.0.166",
+		GameServerPort:  7400,
+		LoginServerIp:   "192.168.0.166",
+		LoginServerPort: 7000,
+		Name:            "test2",
 	})
 
 	return nil
 }
 
 func TestMain(m *testing.M) {
+	tmpfile, err := ioutil.TempFile("", "mir2.db")
+	defer os.Remove(tmpfile.Name())
 
-	err := initTestDB()
+	err = initTestDB(tmpfile.Name())
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	opt := &Option{
-		IsTest:true,
-		Address:SERVER_ADDRESS,
-		DataSourceName:DB_SOURCE,
-		DriverName:DB_DRIVER,
+		IsTest:         true,
+		Address:        SERVER_ADDRESS,
+		DataSourceName: tmpfile.Name(),
+		DriverName:     DB_DRIVER,
 	}
 	loginServer := New(opt)
 	loginChan := make(chan interface{}, 100)

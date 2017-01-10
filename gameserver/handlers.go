@@ -1,16 +1,17 @@
 package gameserver
 
 import (
-	"github.com/pangliang/MirServer-Go/protocol"
-	"strings"
-	"strconv"
-	"fmt"
-	"github.com/pangliang/MirServer-Go/loginserver"
 	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/pangliang/MirServer-Go/loginserver"
+	"github.com/pangliang/MirServer-Go/protocol"
 )
 
 var gameLoginHandler = map[uint16]protocol.PacketHandler{
-	CM_QUERYCHR : func(request *protocol.Packet, args... interface{}) (err error) {
+	CM_QUERYCHR: func(request *protocol.Packet, args ...interface{}) (err error) {
 		session := args[0].(*Session)
 
 		params := strings.Split(request.Data, "/")
@@ -41,7 +42,7 @@ var gameLoginHandler = map[uint16]protocol.PacketHandler{
 		}
 
 		var playerList []Player
-		err = session.db.Find(&playerList, &Player{UserId:loginUser.Id}).Error
+		err = session.db.Find(&playerList, &Player{UserId: loginUser.Id}).Error
 		if err != nil {
 			resp := protocol.NewPacket(SM_QUERYCHR_FAIL)
 			resp.Header.Recog = 4
@@ -70,14 +71,14 @@ var gameLoginHandler = map[uint16]protocol.PacketHandler{
 }
 
 var playerHandlers = map[uint16]protocol.PacketHandler{
-	CM_NEWCHR : func(request *protocol.Packet, args... interface{}) (err error) {
+	CM_NEWCHR: func(request *protocol.Packet, args ...interface{}) (err error) {
 		session := args[0].(*Session)
 		loginUser := args[1].(*loginserver.User)
 		const (
-			WrongName = 0
-			NameExist = 2
+			WrongName  = 0
+			NameExist  = 2
 			MaxPlayers = 3
-			SystemErr = 4
+			SystemErr  = 4
 		)
 		params := strings.Split(request.Data, "/")
 		if len(params) < 5 {
@@ -88,8 +89,8 @@ var playerHandlers = map[uint16]protocol.PacketHandler{
 		}
 
 		player := &Player{
-			UserId:loginUser.Id,
-			Level:1,
+			UserId: loginUser.Id,
+			Level:  1,
 		}
 		player.Name = params[1]
 		player.Hair, _ = strconv.Atoi(params[2])
@@ -107,12 +108,12 @@ var playerHandlers = map[uint16]protocol.PacketHandler{
 		protocol.NewPacket(SM_NEWCHR_SUCCESS).SendTo(session.socket)
 		return nil
 	},
-	CM_QUERYCHR : func(request *protocol.Packet, args... interface{}) (err error) {
+	CM_QUERYCHR: func(request *protocol.Packet, args ...interface{}) (err error) {
 		session := args[0].(*Session)
 		loginUser := args[1].(*loginserver.User)
 
 		var playerList []Player
-		err = session.db.Find(&playerList, &Player{UserId:loginUser.Id}).Error
+		err = session.db.Find(&playerList, &Player{UserId: loginUser.Id}).Error
 		if err != nil {
 			resp := protocol.NewPacket(SM_QUERYCHR_FAIL)
 			resp.Header.Recog = 4
@@ -136,7 +137,7 @@ var playerHandlers = map[uint16]protocol.PacketHandler{
 		resp.SendTo(session.socket)
 		return nil
 	},
-	CM_DELCHR:func(request *protocol.Packet, args... interface{}) (err error) {
+	CM_DELCHR: func(request *protocol.Packet, args ...interface{}) (err error) {
 		session := args[0].(*Session)
 		loginUser := args[1].(*loginserver.User)
 		playerName := request.Data
@@ -153,7 +154,7 @@ var playerHandlers = map[uint16]protocol.PacketHandler{
 
 		return nil
 	},
-	CM_SELCHR:func(request *protocol.Packet, args... interface{}) (err error) {
+	CM_SELCHR: func(request *protocol.Packet, args ...interface{}) (err error) {
 		session := args[0].(*Session)
 		loginUser := args[1].(*loginserver.User)
 

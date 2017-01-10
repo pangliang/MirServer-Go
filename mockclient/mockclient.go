@@ -1,11 +1,12 @@
 package mockclient
 
 import (
-	"net"
-	"github.com/pangliang/MirServer-Go/protocol"
 	"bufio"
 	"log"
+	"net"
 	"sync/atomic"
+
+	"github.com/pangliang/MirServer-Go/protocol"
 )
 
 type MockClient struct {
@@ -25,19 +26,19 @@ func New(addr string) (*MockClient, error) {
 	}
 
 	client := &MockClient{
-		conn:conn,
-		reader:bufio.NewReader(conn),
-		packetSeq:0,
+		conn:      conn,
+		reader:    bufio.NewReader(conn),
+		packetSeq: 0,
 	}
 	return client, nil
 }
 
-func (c *MockClient)Send(p *protocol.Packet) {
+func (c *MockClient) Send(p *protocol.Packet) {
 	atomic.AddUint32(&c.packetSeq, 1)
 	p.SendToServer(c.packetSeq, c.conn)
 }
 
-func (c *MockClient)Read() (*protocol.Packet, error) {
+func (c *MockClient) Read() (*protocol.Packet, error) {
 	buf, err := c.reader.ReadBytes('!')
 	if err != nil {
 		return nil, err
@@ -49,8 +50,6 @@ func (c *MockClient)Read() (*protocol.Packet, error) {
 	return packet, nil
 }
 
-func (c *MockClient)Close() {
+func (c *MockClient) Close() {
 	c.conn.Close()
 }
-
-

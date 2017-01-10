@@ -1,11 +1,12 @@
 package tools
 
 import (
-	"github.com/jinzhu/gorm"
 	"log"
+
+	"github.com/jinzhu/gorm"
 )
 
-func CreateDatabase(tables []interface{}, driverName, dataSourceName string, dropTableIfExists bool){
+func CreateDatabase(tables []interface{}, driverName, dataSourceName string, dropTableIfExists bool) {
 	db, err := gorm.Open(driverName, dataSourceName)
 	if err != nil {
 		log.Fatalf("open database error : %s", err)

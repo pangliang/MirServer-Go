@@ -1,61 +1,61 @@
 package gameserver
 
 import (
-	"testing"
-	"os"
-	"github.com/pangliang/MirServer-Go/mockclient"
-	"github.com/pangliang/MirServer-Go/protocol"
-	"github.com/jinzhu/gorm"
-	"log"
-
-	_ "github.com/mattn/go-sqlite3"
 	"errors"
 	"fmt"
-	"github.com/pangliang/MirServer-Go/loginserver"
+	"io/ioutil"
+	"log"
+	"os"
 	"strconv"
+	"testing"
+
+	"github.com/jinzhu/gorm"
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/pangliang/MirServer-Go/loginserver"
+	"github.com/pangliang/MirServer-Go/mockclient"
+	"github.com/pangliang/MirServer-Go/protocol"
 	"github.com/pangliang/MirServer-Go/tools"
 )
 
 const (
 	LOGIN_SERVER_ADDRESS = "127.0.0.1:7000"
-	GAME_SERVER_ADDRESS = "127.0.0.1:7400"
-	DB_SOURCE = "g:/go_workspace/src/github.com/pangliang/MirServer-Go/mir2.db"
-	DB_DRIVER = "sqlite3"
+	GAME_SERVER_ADDRESS  = "127.0.0.1:7400"
+	DB_DRIVER            = "sqlite3"
 )
 
-func initTestDB() (err error) {
-	tools.CreateDatabase(loginserver.Tables, DB_DRIVER, DB_SOURCE, true)
-	tools.CreateDatabase(Tables, DB_DRIVER, DB_SOURCE, true)
+func initTestDB(dbfile string) (err error) {
+	tools.CreateDatabase(loginserver.Tables, DB_DRIVER, dbfile, true)
+	tools.CreateDatabase(Tables, DB_DRIVER, dbfile, true)
 
-	db, err := gorm.Open(DB_DRIVER, DB_SOURCE)
+	db, err := gorm.Open(DB_DRIVER, dbfile)
 	defer db.Close()
 	if err != nil {
 		log.Fatalf("open database error : %s", err)
 	}
 	db.Create(&loginserver.User{
-		Name:"pangliang",
-		Password:"pwd",
+		Name:     "pangliang",
+		Password: "pwd",
 	})
 	db.Create(&loginserver.User{
-		Name:"11",
-		Password:"11",
+		Name:     "11",
+		Password: "11",
 	})
 	db.Create(&loginserver.ServerInfo{
-		Id:1,
-		GameServerIp:"127.0.0.1",
-		GameServerPort:7400,
-		LoginServerIp:"127.0.0.1",
-		LoginServerPort:7000,
-		Name:"test1",
+		Id:              1,
+		GameServerIp:    "127.0.0.1",
+		GameServerPort:  7400,
+		LoginServerIp:   "127.0.0.1",
+		LoginServerPort: 7000,
+		Name:            "test1",
 	})
 
 	db.Create(&loginserver.ServerInfo{
-		Id:2,
-		GameServerIp:"192.168.0.166",
-		GameServerPort:7400,
-		LoginServerIp:"192.168.0.166",
-		LoginServerPort:7000,
-		Name:"test2",
+		Id:              2,
+		GameServerIp:    "192.168.0.166",
+		GameServerPort:  7400,
+		LoginServerIp:   "192.168.0.166",
+		LoginServerPort: 7000,
+		Name:            "test2",
 	})
 
 	return
@@ -65,27 +65,29 @@ var client *mockclient.MockClient
 var cert int
 
 func TestMain(m *testing.M) {
+	tmpfile, err := ioutil.TempFile("", "mir2.db")
+	defer os.Remove(tmpfile.Name())
 
-	err := initTestDB()
+	err = initTestDB(tmpfile.Name())
 	if err != nil {
 		log.Fatal(err)
 	}
 	loginChan := make(chan interface{}, 100)
 
 	loginServer := loginserver.New(&loginserver.Option{
-		IsTest:true,
-		Address:LOGIN_SERVER_ADDRESS,
-		DataSourceName:DB_SOURCE,
-		DriverName:DB_DRIVER,
+		IsTest:         true,
+		Address:        LOGIN_SERVER_ADDRESS,
+		DataSourceName: tmpfile.Name(),
+		DriverName:     DB_DRIVER,
 	})
 	loginServer.LoginChan = loginChan
 	loginServer.Main()
 
 	gameServer := New(&Option{
-		IsTest:true,
-		Address:GAME_SERVER_ADDRESS,
-		DataSourceName:DB_SOURCE,
-		DriverName:DB_DRIVER,
+		IsTest:         true,
+		Address:        GAME_SERVER_ADDRESS,
+		DataSourceName: tmpfile.Name(),
+		DriverName:     DB_DRIVER,
 	})
 	gameServer.LoginChan = loginChan
 	gameServer.Main()
@@ -132,7 +134,7 @@ func TestLogin(t *testing.T) {
 	if err != nil {
 		t.Fatal(fmt.Sprint(err))
 	}
-	params := resp.Params();
+	params := resp.Params()
 	if (len(params) != 3 || params[0] != "127.0.0.1" || params[1] != "7400") ||
 		resp.Header.Protocol != loginserver.SM_SELECTSERVER_OK {
 		t.Fatal(fmt.Sprint(resp))
@@ -145,7 +147,7 @@ func TestLogin(t *testing.T) {
 	}
 
 	if err := sendAndCheck(client,
-		&protocol.Packet{protocol.PacketHeader{0, CM_QUERYCHR, 0, 0, 0}, fmt.Sprintf("pangliang/%d",cert)},
+		&protocol.Packet{protocol.PacketHeader{0, CM_QUERYCHR, 0, 0, 0}, fmt.Sprintf("pangliang/%d", cert)},
 		&protocol.Packet{protocol.PacketHeader{0, SM_QUERYCHR, 0, 0, 0}, ""},
 	); err != nil {
 		t.Fatal(err)
@@ -206,7 +208,7 @@ func TestCreateDeletePlayer(t *testing.T) {
 	}
 
 	if err := sendAndCheck(client,
-		&protocol.Packet{protocol.PacketHeader{0, CM_QUERYCHR, 0, 0, 0}, fmt.Sprintf("pangliang/%d",cert)},
+		&protocol.Packet{protocol.PacketHeader{0, CM_QUERYCHR, 0, 0, 0}, fmt.Sprintf("pangliang/%d", cert)},
 		&protocol.Packet{protocol.PacketHeader{2, SM_QUERYCHR, 0, 0, 0}, "player1/2/3/1/1/player2/1/1/1/2/"},
 	); err != nil {
 		t.Fatal(err)

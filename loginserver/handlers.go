@@ -1,16 +1,17 @@
 package loginserver
 
 import (
-	"github.com/pangliang/MirServer-Go/protocol"
-	"log"
+	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"strings"
-	"errors"
+
+	"github.com/pangliang/MirServer-Go/protocol"
 )
 
 var loginHandlers = map[uint16]protocol.PacketHandler{
-	CM_ADDNEWUSER : func(request *protocol.Packet, args... interface{}) (err error) {
+	CM_ADDNEWUSER: func(request *protocol.Packet, args ...interface{}) (err error) {
 		session := args[0].(*Session)
 
 		params := strings.Split(request.Data, "")
@@ -21,9 +22,9 @@ var loginHandlers = map[uint16]protocol.PacketHandler{
 			return
 		}
 		user := &User{
-			Name:strings.Trim(params[1], "\x00"),
-			Password:strings.Trim(params[2], "\x00"),
-			Cert:0,
+			Name:     strings.Trim(params[1], "\x00"),
+			Password: strings.Trim(params[2], "\x00"),
+			Cert:     0,
 		}
 		err = session.db.Create(user).Error
 		if err != nil {
@@ -37,15 +38,15 @@ var loginHandlers = map[uint16]protocol.PacketHandler{
 		resp.SendTo(session.socket)
 		return nil
 	},
-	CM_IDPASSWORD : func(request *protocol.Packet, args... interface{}) (err error) {
+	CM_IDPASSWORD: func(request *protocol.Packet, args ...interface{}) (err error) {
 		session := args[0].(*Session)
 		const (
-			UserNotFound = 0
-			WrongPwd = -1
+			UserNotFound   = 0
+			WrongPwd       = -1
 			WrongPwd3Times = -2
-			AlreadyLogin = -3
-			NoPay = -4
-			BeLock = -5
+			AlreadyLogin   = -3
+			NoPay          = -4
+			BeLock         = -5
 		)
 		params := request.Params()
 		var user User
@@ -90,9 +91,9 @@ var loginHandlers = map[uint16]protocol.PacketHandler{
 }
 
 var selectServerHandlers = map[uint16]protocol.PacketHandler{
-	CM_SELECTSERVER : func(request *protocol.Packet, args... interface{}) (err error) {
+	CM_SELECTSERVER: func(request *protocol.Packet, args ...interface{}) (err error) {
 		session := args[0].(*Session)
-		loginUser:= args[1].(*User)
+		loginUser := args[1].(*User)
 
 		serverName := request.Data
 		var serverInfo ServerInfo

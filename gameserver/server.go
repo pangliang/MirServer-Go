@@ -1,14 +1,15 @@
 package gameserver
 
 import (
-	"github.com/pangliang/MirServer-Go/protocol"
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"log"
 	"net"
-	"github.com/pangliang/MirServer-Go/util"
 	"sync"
+
+	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"github.com/pangliang/MirServer-Go/loginserver"
+	"github.com/pangliang/MirServer-Go/protocol"
+	"github.com/pangliang/MirServer-Go/util"
 )
 
 type env struct {
@@ -40,11 +41,11 @@ type GameServer struct {
 
 func New(opt *Option) *GameServer {
 	gameServer := &GameServer{
-		opt:opt,
-		env:&env{
-			users:make(map[string]*loginserver.User),
+		opt: opt,
+		env: &env{
+			users: make(map[string]*loginserver.User),
 		},
-		exitChan:make(chan int),
+		exitChan: make(chan int),
 	}
 	return gameServer
 }
@@ -95,7 +96,7 @@ func (s *GameServer) Handle(socket net.Conn) {
 	}
 	defer db.Close()
 	session := &Session{
-		db:db,
+		db:     db,
 		socket: socket,
 		server: s,
 	}

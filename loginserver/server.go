@@ -1,11 +1,12 @@
 package loginserver
 
 import (
-	"github.com/pangliang/MirServer-Go/protocol"
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"log"
 	"net"
+
+	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/sqlite"
+	"github.com/pangliang/MirServer-Go/protocol"
 	"github.com/pangliang/MirServer-Go/util"
 )
 
@@ -26,12 +27,12 @@ type LoginServer struct {
 	opt       *Option
 	listener  net.Listener
 	waitGroup util.WaitGroupWrapper
-	LoginChan chan <-interface{}
+	LoginChan chan<- interface{}
 }
 
 func New(opt *Option) *LoginServer {
 	loginServer := &LoginServer{
-		opt:opt,
+		opt: opt,
 	}
 	return loginServer
 }
@@ -69,9 +70,9 @@ func (s *LoginServer) Handle(socket net.Conn) {
 	defer db.Close()
 
 	session := &Session{
-		db:db,
+		db:     db,
 		socket: socket,
-		server:s,
+		server: s,
 	}
 
 	protocol.IOLoop(socket, loginHandlers, session)
