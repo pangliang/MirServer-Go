@@ -40,7 +40,7 @@ type Packet struct {
 
 type PacketHandler func(packet *Packet, args... interface{}) error
 
-func IOLoop(socket net.Conn, handlers map[uint16]PacketHandler, args... interface{}) {
+func PacketPump(socket net.Conn, packetChan chan<- *Packet) {
 	reader := bufio.NewReader(socket)
 	for {
 		buf, err := reader.ReadBytes('!')
@@ -53,15 +53,7 @@ func IOLoop(socket net.Conn, handlers map[uint16]PacketHandler, args... interfac
 		packet := ParseClient(buf)
 		log.Printf("packet:%v\n", packet)
 
-		packetHandler, ok := handlers[packet.Header.Protocol]
-		if !ok {
-			log.Printf("handler not found for protocol : %d \n", packet.Header.Protocol)
-			return
-		}
-		err = packetHandler(packet, args...)
-		if err != nil {
-			log.Printf("handler error: %v", err)
-		}
+		packetChan <- packet
 	}
 }
 

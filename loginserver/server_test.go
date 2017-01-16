@@ -67,8 +67,6 @@ func TestMain(m *testing.M) {
 		DriverName:     DB_DRIVER,
 	}
 	loginServer := New(opt)
-	loginChan := make(chan interface{}, 100)
-	loginServer.LoginChan = loginChan
 	loginServer.Main()
 
 	retCode := m.Run()

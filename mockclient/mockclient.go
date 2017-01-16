@@ -7,12 +7,14 @@ import (
 	"sync/atomic"
 
 	"github.com/pangliang/MirServer-Go/protocol"
+	"os"
 )
 
 type MockClient struct {
 	conn      *net.TCPConn
 	reader    *bufio.Reader
 	packetSeq uint32
+	logger    *log.Logger
 }
 
 func New(addr string) (*MockClient, error) {
@@ -29,6 +31,7 @@ func New(addr string) (*MockClient, error) {
 		conn:      conn,
 		reader:    bufio.NewReader(conn),
 		packetSeq: 0,
+		logger: log.New(os.Stdout, "", log.Ltime | log.Lshortfile),
 	}
 	return client, nil
 }
@@ -43,10 +46,10 @@ func (c *MockClient) Read() (*protocol.Packet, error) {
 	if err != nil {
 		return nil, err
 	}
-	//log.Printf("MockClient recv: %s\n", string(buf))
+	//c.logger.Printf("MockClient recv: %s\n", string(buf))
 
 	packet := protocol.ParseServer(buf)
-	log.Printf("MockClient packet:%v\n", packet)
+	c.logger.Printf("packet:%v\n", packet)
 	return packet, nil
 }
 

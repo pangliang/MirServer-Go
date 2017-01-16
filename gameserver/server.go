@@ -5,16 +5,19 @@ import (
 	"net"
 	"sync"
 
+	"os"
+	"sync/atomic"
+
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
-	"github.com/pangliang/MirServer-Go/loginserver"
 	"github.com/pangliang/MirServer-Go/protocol"
 	"github.com/pangliang/MirServer-Go/util"
 )
 
 type env struct {
 	sync.RWMutex
-	users map[string]*loginserver.User
+	clients         map[int64]*client
+	clientIDSequeue int64
 }
 
 type Option struct {
@@ -24,26 +27,21 @@ type Option struct {
 	DriverName     string
 }
 
-type Session struct {
-	db     *gorm.DB
-	socket net.Conn
-	server *GameServer
-}
-
 type GameServer struct {
+	logger    *log.Logger
 	opt       *Option
 	env       *env
 	listener  net.Listener
 	waitGroup util.WaitGroupWrapper
-	LoginChan <-chan interface{}
 	exitChan  chan int
 }
 
 func New(opt *Option) *GameServer {
 	gameServer := &GameServer{
-		opt: opt,
+		logger: log.New(os.Stdout, "GameServer:", log.Lshortfile | log.Ltime),
+		opt:    opt,
 		env: &env{
-			users: make(map[string]*loginserver.User),
+			clients: make(map[int64]*client),
 		},
 		exitChan: make(chan int),
 	}
@@ -53,7 +51,7 @@ func New(opt *Option) *GameServer {
 func (s *GameServer) Main() {
 	listener, err := net.Listen("tcp", s.opt.Address)
 	if err != nil {
-		log.Fatalln("start server error: ", err)
+		s.logger.Fatalln("start server error: ", err)
 	}
 	s.listener = listener
 	s.waitGroup.Wrap(func() {
@@ -77,28 +75,39 @@ func (s *GameServer) eventLoop() {
 	for {
 		select {
 		case <-s.exitChan:
-			log.Print("exit EventLoop")
+			s.logger.Print("exit EventLoop")
 			return
-		case e := <-s.LoginChan:
-			user := e.(*loginserver.User)
-			s.env.Lock()
-			s.env.users[user.Name] = user
-			s.env.Unlock()
 		}
 	}
 }
 
 func (s *GameServer) Handle(socket net.Conn) {
-	defer socket.Close()
+
+	packetChan := make(chan *protocol.Packet)
+
+	s.waitGroup.Wrap(func() {
+		protocol.PacketPump(socket, packetChan)
+	})
+
 	db, err := gorm.Open(s.opt.DriverName, s.opt.DataSourceName)
 	if err != nil {
-		log.Fatalf("open database error : %s", err)
+		log.Printf("open database error : %s", err)
+		return
 	}
 	defer db.Close()
-	session := &Session{
-		db:     db,
-		socket: socket,
-		server: s,
+
+	clientId := atomic.AddInt64(&s.env.clientIDSequeue, 1)
+	client := &client{
+		id:         clientId,
+		db:         db,
+		socket:     socket,
+		server:     s,
+		packetChan: packetChan,
 	}
-	protocol.IOLoop(socket, gameLoginHandler, session)
+
+	s.env.Lock()
+	s.env.clients[clientId] = client
+	s.env.Unlock()
+
+	client.Main()
 }
