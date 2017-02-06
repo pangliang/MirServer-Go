@@ -102,7 +102,7 @@ func (s *GameServer) Handle(socket net.Conn) {
 		db:         db,
 		socket:     socket,
 		server:     s,
-		packetChan: packetChan,
+		requestChan: packetChan,
 	}
 
 	s.env.Lock()

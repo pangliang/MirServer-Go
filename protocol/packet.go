@@ -1,22 +1,24 @@
 package protocol
 
 import (
+	"bufio"
 	"bytes"
-	"log"
 	"encoding/binary"
+	"fmt"
+	"log"
 	"net"
 	"strings"
-	"fmt"
-	"bufio"
+	"errors"
 )
 
 var decode6BitMask = [...]byte{0xfc, 0xf8, 0xf0, 0xe0, 0xc0}
 
 const (
 	DEFAULT_PACKET_SIZE = 12
-	CONTENT_SEPARATOR = "/"
+	CONTENT_SEPARATOR   = "/"
 )
 
+var ERR_FORMAT_WRONG = errors.New("Packet format wrong")
 type PacketHeader struct {
 	Recog    int32
 	Protocol uint16
@@ -38,7 +40,7 @@ type Packet struct {
 	Data   string
 }
 
-type PacketHandler func(packet *Packet, args... interface{}) error
+type PacketHandler func(packet *Packet, args ...interface{}) error
 
 func PacketPump(socket net.Conn, packetChan chan<- *Packet) {
 	reader := bufio.NewReader(socket)
@@ -51,7 +53,7 @@ func PacketPump(socket net.Conn, packetChan chan<- *Packet) {
 		//log.Printf("recv:%s\n", string(buf))
 
 		packet := ParseClient(buf)
-		log.Printf("packet:%v\n", packet)
+		log.Printf("recv:%v\n", packet)
 
 		packetChan <- packet
 	}
@@ -63,21 +65,26 @@ func NewPacket(protocolId uint16) *Packet {
 	return p
 }
 
-func (packet *Packet) Params() []string {
-	return strings.Split(packet.Data, CONTENT_SEPARATOR)
+func (packet *Packet) Params(least int) ([]string, error) {
+	params := strings.Split(packet.Data, CONTENT_SEPARATOR)
+	if len(params) < least {
+		return nil, ERR_FORMAT_WRONG
+	}
+	return params, nil
 }
 
 func (packet *Packet) SendTo(socket net.Conn) {
-	buf := packet.encode()
-	data := fmt.Sprintf("#%s!", buf)
-	//log.Printf("send: %s\n", data)
+	log.Printf("send:%v\n", packet)
+	data := packet.encode()
+	socket.Write([]byte{'#'})
 	socket.Write([]byte(data))
+	socket.Write([]byte{'!'})
 }
 
 func (packet *Packet) SendToServer(seq uint32, socket net.Conn) {
+	log.Printf("sendToServ:%v\n", packet)
 	buf := packet.encode()
 	data := fmt.Sprintf("#%d%s!", seq, buf)
-	//log.Printf("send: %s\n", data)
 	socket.Write([]byte(data))
 }
 
@@ -91,24 +98,32 @@ func (packet *Packet) encode() []byte {
 }
 
 func decode(frame []byte) *Packet {
-	headerFrame := frame[:DEFAULT_PACKET_SIZE * 4 / 3 ]
+	decodeFrame := decode6BitBytes(frame)
+	//log.Printf("decoce:%s", string(decodeFrame))
 	packet := &Packet{}
-	packet.Header.Read(decode6BitBytes(headerFrame))
-	packet.Data = string(decode6BitBytes(frame[DEFAULT_PACKET_SIZE * 4 / 3 :]))
+	if decodeFrame[0] == byte('*') && decodeFrame[1] == byte('*') {
+		// [**11/2222/81/20020522/9]  game login packet
+		packet.Header.Protocol = 65001
+		packet.Data = string(decodeFrame[2:])
+	} else {
+		packet.Header.Read(decodeFrame[:DEFAULT_PACKET_SIZE])
+		packet.Data = string(decodeFrame[DEFAULT_PACKET_SIZE:])
+	}
+
 	return packet
 }
 
 func ParseClient(frame []byte) *Packet {
-	return decode(frame[2:len(frame)-1])
+	return decode(frame[2 : len(frame)-1])
 }
 
 func ParseServer(frame []byte) *Packet {
-	return decode(frame[1:len(frame)-1])
+	return decode(frame[1 : len(frame)-1])
 }
 
 func encoder6BitBuf(src []byte) []byte {
 	var size = len(src)
-	var destLen = (size / 3) * 4 + 10
+	var destLen = (size/3)*4 + 10
 	var dest = make([]byte, destLen)
 	var destPos = 0
 	var resetCount = 0
@@ -116,19 +131,19 @@ func encoder6BitBuf(src []byte) []byte {
 	var chMade, chRest byte = 0, 0
 
 	for i := 0; i < size; i++ {
-		if (destPos >= destLen) {
+		if destPos >= destLen {
 			break
 		}
 
-		chMade = (byte)((chRest | ((src[i] & 0xff) >> uint(2 + resetCount))) & 0x3f)
-		chRest = (byte)((((src[i] & 0xff) << uint(8 - (2 + resetCount))) >> uint(2)) & 0x3f)
+		chMade = (byte)((chRest | ((src[i] & 0xff) >> uint(2+resetCount))) & 0x3f)
+		chRest = (byte)((((src[i] & 0xff) << uint(8-(2+resetCount))) >> uint(2)) & 0x3f)
 
 		resetCount += 2
 		if resetCount < 6 {
 			dest[destPos] = (byte)(chMade + 0x3c)
 			destPos += 1
 		} else {
-			if (destPos < destLen - 1) {
+			if destPos < destLen-1 {
 				dest[destPos] = (byte)(chMade + 0x3c)
 				destPos += 1
 				dest[destPos] = (byte)(chRest + 0x3c)
@@ -138,24 +153,24 @@ func encoder6BitBuf(src []byte) []byte {
 				destPos += 1
 			}
 
-			resetCount = 0;
-			chRest = 0;
+			resetCount = 0
+			chRest = 0
 		}
 	}
-	if (resetCount > 0 ) {
-		dest[destPos] = (byte)(chRest + 0x3c);
+	if resetCount > 0 {
+		dest[destPos] = (byte)(chRest + 0x3c)
 		destPos += 1
 	}
 
-	dest[destPos] = 0;
-	return dest[:destPos];
+	dest[destPos] = 0
+	return dest[:destPos]
 
 }
 
 func decode6BitBytes(src []byte) []byte {
 
 	var size = len(src)
-	var dest = make([]byte, size * 3 / 4)
+	var dest = make([]byte, size*3/4)
 	var destPos = 0
 	var bitPos uint = 2
 	var madeBit uint = 0
@@ -165,7 +180,7 @@ func decode6BitBytes(src []byte) []byte {
 	var tmp byte = 0
 
 	for i := 0; i < size; i++ {
-		if ((src[i] - 0x3c) >= 0) {
+		if (src[i] - 0x3c) >= 0 {
 			ch = byte(src[i] - 0x3c)
 		} else {
 			destPos = 0
@@ -176,14 +191,14 @@ func decode6BitBytes(src []byte) []byte {
 			break
 		}
 
-		if madeBit + 6 >= 8 {
-			chCode = byte(tmp | ((ch & 0x3f) >> uint(6 - bitPos)))
+		if madeBit+6 >= 8 {
+			chCode = byte(tmp | ((ch & 0x3f) >> uint(6-bitPos)))
 
 			dest[destPos] = chCode
 			destPos += 1
 
 			madeBit = 0
-			if (bitPos < 6) {
+			if bitPos < 6 {
 				bitPos += 2
 			} else {
 				bitPos = 2
@@ -191,7 +206,7 @@ func decode6BitBytes(src []byte) []byte {
 			}
 		}
 
-		tmp = (byte)((ch << bitPos) & decode6BitMask[bitPos - 2])
+		tmp = (byte)((ch << bitPos) & decode6BitMask[bitPos-2])
 
 		madeBit += 8 - bitPos
 	}

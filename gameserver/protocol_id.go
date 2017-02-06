@@ -1,21 +1,6 @@
 package gameserver
 
 const (
-	// For Select Player Process
-	CM_QUERYCHR = 100
-	CM_NEWCHR   = 101
-	CM_DELCHR   = 102
-	CM_SELCHR   = 103
-
-	SM_QUERYCHR       = 520
-	SM_NEWCHR_SUCCESS = 521
-	SM_NEWCHR_FAIL    = 522
-	SM_DELCHR_SUCCESS = 523
-	SM_DELCHR_FAIL    = 524
-	SM_STARTPLAY      = 525
-	SM_STARTFAIL      = 526
-	SM_QUERYCHR_FAIL  = 527
-
 	// For game process
 	// Client To Server Commands
 	CM_GAMELOGIN      = 65001
@@ -103,6 +88,8 @@ const (
 	SM_ADDMAGIC    = 210
 	SM_SENDMYMAGIC = 211
 	SM_DELMAGIC    = 212
+
+	SM_CERTIFICATION_FAIL = 501
 
 	SM_DROPITEM_SUCCESS = 600
 	SM_DROPITEM_FAIL    = 601

@@ -20,7 +20,7 @@ const (
 )
 
 func initTestDB(dbFile string) (err error) {
-	tools.CreateDatabase(Tables, DB_DRIVER, dbFile, true)
+	tools.CreateDatabase(DB_DRIVER, dbFile, true)
 	db, err := gorm.Open(DB_DRIVER, dbFile)
 	defer db.Close()
 	if err != nil {

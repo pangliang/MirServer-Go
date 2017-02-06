@@ -1,14 +1,16 @@
 package main
 
 import (
-	"syscall"
+	"flag"
 	"log"
-	"github.com/judwhite/go-svc/svc"
 	"os"
 	"path/filepath"
-	"github.com/pangliang/MirServer-Go/loginserver"
+	"syscall"
+
+	"github.com/judwhite/go-svc/svc"
 	"github.com/pangliang/MirServer-Go/gameserver"
-	"flag"
+	"github.com/pangliang/MirServer-Go/loginserver"
+	"github.com/pangliang/MirServer-Go/tools"
 )
 
 type program struct {
@@ -32,6 +34,11 @@ func (p *program) Init(env svc.Environment) error {
 }
 
 func (p *program) Start() error {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.SetOutput(os.Stdout)
+
+	tools.MigrateDevDB()
+
 	loginOpt := &loginserver.Option{}
 	flagSet := flag.NewFlagSet("loginserver", flag.ExitOnError)
 	flagSet.BoolVar(&loginOpt.IsTest, "test.v", false, "")
@@ -40,10 +47,7 @@ func (p *program) Start() error {
 	flagSet.StringVar(&loginOpt.DriverName, "dbDriver", "sqlite3", "database DriverName")
 	flagSet.Parse(os.Args[1:])
 
-	loginChan := make(chan interface{}, 10)
-
 	p.loginServer = loginserver.New(loginOpt)
-	p.loginServer.LoginChan = loginChan
 	p.loginServer.Main()
 
 	gameOpt := &gameserver.Option{}
@@ -55,7 +59,6 @@ func (p *program) Start() error {
 	flagSet.Parse(os.Args[1:])
 
 	p.gameServer = gameserver.New(gameOpt)
-	p.gameServer.LoginChan = loginChan
 	p.gameServer.Main()
 
 	return nil
